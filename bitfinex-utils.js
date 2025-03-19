@@ -20,7 +20,7 @@ async function ledgers(params) {
 exports.ledgers = ledgers
 
 async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
-    const ws = bfx.ws(2, { autoReconnect: true })
+  const ws = bfx.ws(2, { autoReconnect: true })
 
   ws.onAccountTradeEntry({ symbol }, (trade) => {
     console.log('trade entry', JSON.stringify(trade, null, 2))
