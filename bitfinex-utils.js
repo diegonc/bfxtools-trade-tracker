@@ -22,40 +22,38 @@ exports.ledgers = ledgers
 async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   const ws = bfx.ws(2, { autoReconnect: true })
 
+  let trades = {}
   ws.onAccountTradeEntry({ symbol }, (trade) => {
     console.log('trade entry', JSON.stringify(trade, null, 2))
-    const [chanId, type, data] = trade
-    if (type === 'te') {
-      const tradeId = data[0]
-      trades[tradeId] = data
-    } else if (type === 'tu') {
-      const tradeId = data[0]
-      const teData = trades[tradeId]
-      if (!!teData) {
-        delete trades[tradeId]
-        if (onTrade)
-          onTrade({
-            id: tradeId,
-            symbol: data[1],
-            mts: data[2],
-            orderId: data[3],
-            execAmount: data[4],
-            execPrice: data[5],
-            orderType: data[6],
-            orderPrice: data[7],
-            maker: data[8] === 1,
-            fee: data[9],
-            feeCurrency: data[10],
-            clientOrderId: data[11],
-          })
-      }
+    const tradeId = trade[0]
+    trades[tradeId] = trade
+  })
+  ws.onAccountTradeUpdate({ symbol }, (trade) => {
+    console.log('trade update', JSON.stringify(trade, null, 2))
+    const tradeId = trade[0]
+    const teData = trades[tradeId]
+    if (!!teData) {
+      delete trades[tradeId]
+      if (onTrade)
+        onTrade({
+          id: tradeId,
+          symbol: trade[1],
+          mts: trade[2],
+          orderId: trade[3],
+          execAmount: trade[4],
+          execPrice: trade[5],
+          orderType: trade[6],
+          orderPrice: trade[7],
+          maker: trade[8] === 1,
+          fee: trade[9],
+          feeCurrency: trade[10],
+          clientOrderId: trade[11],
+        })
     }
   })
 
-  ws.onAccountTradeUpdate({ symbol }, (trade) => {
-    console.log('trade update', JSON.stringify(trade, null, 2))
-  })
-
+  let tsState = {}
+  let lastTs = {}
   ws.onStatus({ key: statusKey }, (status) => {
     const currentTs = (tsState[statusKey] = tsState[statusKey] || status[7])
     const ts = status[0]
@@ -76,6 +74,10 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   ws.on('auth', () => console.log('on auth :: authenticated'))
   ws.on('open', async () => {
     console.log('on open :: subscribing to channels')
+
+    trades = {}
+    tsState = {}
+    lastTs = {}
     try {
       console.log('on open :: subscribing trades on', symbol)
       await ws.subscribeTrades(symbol)
