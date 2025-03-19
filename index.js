@@ -275,7 +275,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
             break
         }
       }
-
+      await this.sheet.saveUpdatedCells()
       this.nextRow++
       this.positionSize += -trade.execAmount
     },
@@ -374,6 +374,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
             break
         }
       }
+      await this.sheet.saveUpdatedCells()
       this.nextRow++
       this.positionSize += -trade.execAmount
       if (this.positionSize === 0) {
@@ -468,6 +469,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
             break
         }
       }
+      await this.sheet.saveUpdatedCells()
     },
   }
 }
