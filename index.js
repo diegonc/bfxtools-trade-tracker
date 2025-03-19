@@ -500,9 +500,13 @@ async function main(symbol, walletCurrency) {
         ].join(',')
       )
 
-      tracker
-        .addTrade(trade)
-        .catch((err) => console.log('main :: addTrade', err))
+      try {
+        tracker
+          .addTrade(trade)
+          .catch((err) => console.log('main :: addTrade', err))
+      } catch (err) {
+        console.log('onTrade :: error', err)
+      }
     },
     (status) => {
       console.log(
@@ -512,9 +516,13 @@ async function main(symbol, walletCurrency) {
       if (tracker.positionSize !== 0) {
         console.log(['Funding', JSON.stringify(status.funding)].join(' '))
         if (!!status.funding) {
-          tracker
-            .addFunding(status)
-            .catch((err) => console.log('main :: addFunding', err))
+          try {
+            tracker
+              .addFunding(status)
+              .catch((err) => console.log('main :: addFunding', err))
+          } catch (err) {
+            console.log('onStatus :: error', err)
+          }
         }
       }
     }
