@@ -19,10 +19,16 @@ const jwt = new JWT({
   scopes,
 })
 
-const readOnlyColor = {
+const headerColor = {
   red: 0xe6 / 255,
   green: 0xb8 / 255,
   blue: 0xaf / 255,
+}
+
+const readOnlyColor = {
+  red: 0xda / 255,
+  green: 0xe9 / 255,
+  blue: 0xf8 / 255,
 }
 
 const headerValues = [
@@ -75,7 +81,7 @@ async function createNewSheet(book, walletType, walletCurrency) {
   await dataSheet.loadCells('A1:K2')
   for (let i = 0; i < headerValues.length; i++) {
     const cell = dataSheet.getCell(0, i)
-    cell.backgroundColor = readOnlyColor
+    cell.backgroundColor = headerColor
     cell.textFormat = { bold: true }
     cell.horizontalAlignment = 'CENTER'
   }
@@ -89,18 +95,14 @@ async function createNewSheet(book, walletType, walletCurrency) {
   const balance = await getBalance(walletType, walletCurrency)
   balanceCell.numberFormat = {
     type: 'NUMBER',
-    pattern: '#.00000000',
+    pattern: '#0.00000000',
   }
   balanceCell.numberValue = balance
 
   /* Set row background */
   for (let i = 0; i < headerValues.length; i++) {
     const cell = dataSheet.getCell(1, i)
-    cell.backgroundColor = {
-      red: 0xda / 255,
-      green: 0xe9 / 255,
-      blue: 0xf8 / 255,
-    }
+    cell.backgroundColor = readOnlyColor
   }
   await dataSheet.saveUpdatedCells()
 
@@ -232,42 +234,42 @@ async function setupWorkingSheet(walletType, walletCurrency) {
           case 5:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.numberValue = inputRow[i]
             break
           case 6:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.000%',
+              pattern: '#0.000%',
             }
             cell.numberValue = inputRow[i]
             break
           case 7:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = '=ROUNDUP(E3;8)'
             break
           case 8:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=IF(C3="Sell";(E3-H3)*D3;0)`
             break
           case 9:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=-ABS(ROUND(D3*E3*G3;8))`
             break
           case 10:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=I3+K2+J3+F3`
             break
@@ -319,21 +321,21 @@ async function setupWorkingSheet(walletType, walletCurrency) {
           case 5:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.numberValue = inputRow[i]
             break
           case 6:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.000%',
+              pattern: '#0.000%',
             }
             cell.numberValue = inputRow[i]
             break
           case 7:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$3:D${nextRow})+IF(C${
               nextRow + 1
@@ -346,7 +348,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
           case 8:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=IF(C${nextRow + 1}="Sell";(E${nextRow + 1}-H${
               nextRow + 1
@@ -355,7 +357,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
           case 9:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=-ABS(ROUND(D${nextRow + 1}*E${nextRow + 1}*G${
               nextRow + 1
@@ -364,7 +366,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
           case 10:
             cell.numberFormat = {
               type: 'NUMBER',
-              pattern: '#.00000000',
+              pattern: '#0.00000000',
             }
             cell.formula = `=I${nextRow + 1}+K${nextRow}+J${nextRow + 1}+F${
               nextRow + 1
