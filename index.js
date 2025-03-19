@@ -483,7 +483,7 @@ async function main(symbol, walletCurrency) {
   const { close } = await subscribeTrades(
     { symbol, statusKey: `deriv:${symbol}` },
     (trade) => {
-      const fee = trade.fee / (trade.execAmount * trade.execPrice)
+      const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
 
       console.log('trade', JSON.stringify(trade, null, 2))
