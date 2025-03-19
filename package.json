@@ -1,0 +1,19 @@
+{
+  "name": "bfxtools-trade-tracker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bitfinex-api-node": "^7.0.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.7",
+    "google-auth-library": "^9.15.1",
+    "google-spreadsheet": "^4.1.4"
+  }
+}
