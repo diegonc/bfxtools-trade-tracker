@@ -201,6 +201,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
     async _addFirstRow(trade) {
       const fee = trade.fee / (trade.execAmount * trade.execPrice)
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
+      const nextRow = this.nextRow
 
       const inputRow = [
         trade.id,
@@ -286,6 +287,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
 
       const fee = trade.fee / (trade.execAmount * trade.execPrice)
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
+      const nextRow = this.nextRow
 
       const inputRow = [
         trade.id,
@@ -391,6 +393,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
         funding.funding,
         0,
       ]
+      const nextRow = this.nextRow
 
       for (let i = 0; i < headerValues.length; i++) {
         const cell = this.sheet.getCell(this.nextRow, i)
