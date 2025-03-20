@@ -574,7 +574,9 @@ if (arg === 'balance') {
     console.error
   )
 } else if (arg === 'track') {
+  /* test pair : 'tTESTBTCF0:TESTUSDTF0' */
   const pair = process.argv[3] || 'tBTCF0:USTF0'
+  /* test ccy : 'TESTUSDTF0' */
   const ccy = process.argv[4] || 'USTF0'
   main(pair, ccy).catch((err) => console.log('main :: error', err))
 } else {
