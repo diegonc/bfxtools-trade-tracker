@@ -198,110 +198,11 @@ async function setupWorkingSheet(walletType, walletCurrency) {
         `Working on current sheet ${this.sheetTitle}, nextRow = ${this.nextRow}, positionSize = ${this.positionSize}`
       )
     },
-    async _addFirstRow(trade) {
-      const fee = trade.fee / (trade.execAmount * trade.execPrice)
-      const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
+    async _addRow(inputRow) {
       const nextRow = this.nextRow
-
-      const inputRow = [
-        trade.id,
-        dayjs.utc(trade.mts),
-        type,
-        -trade.execAmount,
-        trade.execPrice,
-        0,
-        fee,
-      ]
-
       for (let i = 0; i < headerValues.length; i++) {
-        const cell = this.sheet.getCell(this.nextRow, i)
-        cell.backgroundColor = readOnlyColor
-        switch (i) {
-          case 0:
-            cell.numberValue = inputRow[i]
-            break
-          case 1:
-            cell.numberFormat = {
-              type: 'DATE_TIME',
-              pattern: 'yyyy/mm/dd hh:mm:ss',
-            }
-            cell.numberValue = DateToValue(dayjs.utc(inputRow[i]).toDate())
-            break
-          case 2:
-            cell.stringValue = inputRow[i]
-            break
-          case 3:
-          case 4:
-          case 5:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.00000000',
-            }
-            cell.numberValue = inputRow[i]
-            break
-          case 6:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.000%',
-            }
-            cell.numberValue = inputRow[i]
-            break
-          case 7:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.00000000',
-            }
-            cell.formula = '=ROUNDUP(E3;8)'
-            break
-          case 8:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.00000000',
-            }
-            cell.formula = `=IF(C3="Sell";(E3-H3)*D3;0)`
-            break
-          case 9:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.00000000',
-            }
-            cell.formula = `=-ABS(ROUND(D3*E3*G3;8))`
-            break
-          case 10:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#0.00000000',
-            }
-            cell.formula = `=I3+K2+J3+F3`
-            break
-        }
-      }
-      await this.sheet.saveUpdatedCells()
-      this.nextRow++
-      this.positionSize += -trade.execAmount
-    },
-    async addTrade(trade) {
-      if (this.nextRow === 2) {
-        return this._addFirstRow(trade)
-      }
-
-      const fee = trade.fee / (trade.execAmount * trade.execPrice)
-      const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
-      const nextRow = this.nextRow
-
-      const inputRow = [
-        trade.id,
-        dayjs.utc(trade.mts),
-        type,
-        -trade.execAmount,
-        trade.execPrice,
-        0,
-        fee,
-      ]
-
-      for (let i = 0; i < headerValues.length; i++) {
-        const cell = this.sheet.getCell(this.nextRow, i)
-        if (i > 6) {
+        const cell = this.sheet.getCell(nextRow, i)
+        if (i > 6 || nextRow === 2) {
           cell.backgroundColor = readOnlyColor
         }
         switch (i) {
@@ -313,7 +214,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
               type: 'DATE_TIME',
               pattern: 'yyyy/mm/dd hh:mm:ss',
             }
-            cell.numberValue = DateToValue(dayjs.utc(inputRow[i]).toDate())
+            cell.numberValue = DateToValue(inputRow[i].toDate())
             break
           case 2:
             cell.stringValue = inputRow[i]
@@ -339,13 +240,17 @@ async function setupWorkingSheet(walletType, walletCurrency) {
               type: 'NUMBER',
               pattern: '#0.00000000',
             }
-            cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$3:D${nextRow})+IF(C${
-              nextRow + 1
-            }="Buy";(D${nextRow + 1}*E${
-              nextRow + 1
-            });0))/(SUM($D$3:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
-              nextRow + 1
-            };0));8)`
+            if (nextRow === 2) {
+              cell.formula = '=ROUNDUP(E3;8)'
+            } else {
+              cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$3:D${nextRow})+IF(C${
+                nextRow + 1
+              }="Buy";(D${nextRow + 1}*E${
+                nextRow + 1
+              });0))/(SUM($D$3:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
+                nextRow + 1
+              };0));8)`
+            }
             break
           case 8:
             cell.numberFormat = {
@@ -377,6 +282,20 @@ async function setupWorkingSheet(walletType, walletCurrency) {
         }
       }
       await this.sheet.saveUpdatedCells()
+    },
+    async addTrade(trade) {
+      const fee = trade.fee / (trade.execAmount * trade.execPrice)
+      const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
+      const inputRow = [
+        trade.id,
+        dayjs.utc(trade.mts),
+        type,
+        -trade.execAmount,
+        trade.execPrice,
+        0,
+        fee,
+      ]
+      await this._addRow(inputRow)
       this.nextRow++
       this.positionSize += -trade.execAmount
       if (this.positionSize === 0) {
@@ -393,86 +312,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
         funding.funding,
         0,
       ]
-      const nextRow = this.nextRow
-
-      for (let i = 0; i < headerValues.length; i++) {
-        const cell = this.sheet.getCell(this.nextRow, i)
-        if (i > 6) {
-          cell.backgroundColor = readOnlyColor
-        }
-        switch (i) {
-          case 0:
-            cell.numberValue = inputRow[i]
-            break
-          case 1:
-            cell.numberFormat = {
-              type: 'DATE_TIME',
-              pattern: 'yyyy/mm/dd hh:mm:ss',
-            }
-            cell.numberValue = DateToValue(dayjs.utc(inputRow[i]).toDate())
-            break
-          case 2:
-            cell.stringValue = inputRow[i]
-            break
-          case 3:
-          case 4:
-          case 5:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.00000000',
-            }
-            cell.numberValue = inputRow[i]
-            break
-          case 6:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.000%',
-            }
-            cell.numberValue = inputRow[i]
-            break
-          case 7:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.00000000',
-            }
-            cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$3:D${nextRow})+IF(C${
-              nextRow + 1
-            }="Buy";(D${nextRow + 1}*E${
-              nextRow + 1
-            });0))/(SUM($D$3:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
-              nextRow + 1
-            };0));8)`
-            break
-          case 8:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.00000000',
-            }
-            cell.formula = `=IF(C${nextRow + 1}="Sell";(E${nextRow + 1}-H${
-              nextRow + 1
-            })*D${nextRow + 1};0)`
-            break
-          case 9:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.00000000',
-            }
-            cell.formula = `=-ABS(ROUND(D${nextRow + 1}*E${nextRow + 1}*G${
-              nextRow + 1
-            };8))`
-            break
-          case 10:
-            cell.numberFormat = {
-              type: 'NUMBER',
-              pattern: '#.00000000',
-            }
-            cell.formula = `=I${nextRow + 1}+K${nextRow}+J${nextRow + 1}+F${
-              nextRow + 1
-            }`
-            break
-        }
-      }
-      await this.sheet.saveUpdatedCells()
+      await this._addRow(inputRow)
     },
   }
 }
