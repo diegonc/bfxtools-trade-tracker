@@ -290,7 +290,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
       await this.sheet.saveUpdatedCells()
     },
     async addTrade(trade) {
-      const fee = trade.fee / (trade.execAmount * trade.execPrice)
+      const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
       const inputRow = [
         trade.id,
