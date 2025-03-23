@@ -70,7 +70,7 @@ async function finishSheet(book, sheetTitle) {
     const title = row.get('Sheet Title')
     if (title === sheetTitle) {
       row.set('Status', 'DONE')
-      row.save()
+      row.save({ raw: true })
       break
     }
   }
