@@ -9,9 +9,12 @@ dayjs.extend(utc)
 
 const { getWallets, subscribeTrades, ledgers } = require('./bitfinex-utils')
 const { DateToValue } = require('./gsheets-date-utils')
+const createLogger = require('./logging')
 const credentials = require(process.env.GOOGLE_ACCOUNT_JSON_FILE)
 const workbookId = process.env.GOOGLE_WORKBOOK_ID
 const scopes = ['https://www.googleapis.com/auth/spreadsheets']
+
+const logger = createLogger('main')
 
 const jwt = new JWT({
   email: credentials.client_email,
@@ -194,8 +197,11 @@ async function setupWorkingSheet(walletType, walletCurrency) {
       this.nextRow = nextRow
       this.sheet = sheet
 
-      console.log(
-        `Working on current sheet ${this.sheetTitle}, nextRow = ${this.nextRow}, positionSize = ${this.positionSize}`
+      logger.info(
+        'Working on current sheet %s, nextRow = %d, positionSize = %f',
+        this.sheetTitle,
+        this.nextRow,
+        this.positionSize
       )
     },
     async _addRow(inputRow) {
@@ -319,8 +325,11 @@ async function setupWorkingSheet(walletType, walletCurrency) {
 
 async function main(symbol, walletCurrency) {
   const tracker = await setupWorkingSheet('margin', walletCurrency)
-  console.log(
-    `Working on current sheet ${tracker.sheetTitle}, nextRow = ${tracker.nextRow}, positionSize = ${tracker.positionSize}`
+  logger.info(
+    'Working on current sheet %s, nextRow = %d, positionSize = %f',
+    tracker.sheetTitle,
+    tracker.nextRow,
+    tracker.positionSize
   )
 
   const { close } = await subscribeTrades(
@@ -329,18 +338,12 @@ async function main(symbol, walletCurrency) {
       const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
 
-      console.log('trade', JSON.stringify(trade, null, 2))
-      console.log('fee %', fee)
-      console.log(
-        [
-          trade.id,
-          dayjs.utc(trade.mts),
-          type,
-          -trade.execAmount,
-          trade.execPrice,
-          '',
-          fee,
-        ].join(',')
+      logger.debug(
+        '%s - amount=%f, price=%f, fee=%f',
+        type,
+        -trade.execAmount,
+        trade.execPrice,
+        fee
       )
 
       try {
@@ -348,23 +351,24 @@ async function main(symbol, walletCurrency) {
           .addTrade(trade)
           .catch((err) => console.log('main :: addTrade', err))
       } catch (err) {
-        console.log('onTrade :: error', err)
+        logger.error('onTrade', err)
       }
     },
     (status) => {
-      console.log(
-        'status',
-        JSON.stringify({ positionSize: tracker.positionSize, status })
-      )
       if (tracker.positionSize !== 0) {
-        console.log(['Funding', JSON.stringify(status.funding)].join(' '))
         if (!!status.funding) {
           try {
+            logger.info(
+              'Funding - [ts=%d nextTs=%d] %f',
+              status.ts,
+              status.nextTs,
+              status.funding
+            )
             tracker
               .addFunding(status)
               .catch((err) => console.log('main :: addFunding', err))
           } catch (err) {
-            console.log('onStatus :: error', err)
+            logger.error('onStatus', err)
           }
         }
       }
@@ -372,9 +376,9 @@ async function main(symbol, walletCurrency) {
   )
 
   function term() {
-    console.log('Closing WS connection...')
+    logger.debug('Closing WS connection...')
     close().then((_) => {
-      console.log('Exiting...')
+      logger.debug('Exiting...')
       process.exit(0)
     })
   }

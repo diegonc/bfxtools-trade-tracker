@@ -1,5 +1,8 @@
 const BFX = require('bitfinex-api-node')
 const dayjs = require('dayjs')
+const createLogger = require('./logging')
+
+const logger = createLogger('bfx')
 
 const apiKey = process.env.BITFINEX_API_KEY
 const apiSecret = process.env.BITFINEX_API_KEY_SECRET
@@ -24,12 +27,12 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
 
   let trades = {}
   ws.onAccountTradeEntry({ symbol }, (trade) => {
-    console.log('trade entry', JSON.stringify(trade, null, 2))
+    logger.debug('trade entry', trade)
     const tradeId = trade[0]
     trades[tradeId] = trade
   })
   ws.onAccountTradeUpdate({ symbol }, (trade) => {
-    console.log('trade update', JSON.stringify(trade, null, 2))
+    logger.debug('trade update', trade)
     const tradeId = trade[0]
     const teData = trades[tradeId]
     if (!!teData) {
@@ -58,7 +61,7 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     const currentTs = (tsState[statusKey] = tsState[statusKey] || status[7])
     const ts = status[0]
     if (ts >= currentTs && (!lastTs[statusKey] || lastTs[statusKey] !== ts)) {
-      console.log('status', JSON.stringify({ currentTs, ts, status }))
+      logger.debug('status', { currentTs, ts, status })
       const nextTs = status[7]
       const funding = status[11]
       lastTs[statusKey] = ts
@@ -69,32 +72,31 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     }
   })
 
-
-  ws.on('error', (e) => console.log('subscribeTrades :: error', e))
-  ws.on('auth', () => console.log('on auth :: authenticated'))
+  ws.on('error', (e) => logger.debug('subscribeTrades', e))
+  ws.on('auth', () => logger.debug('auth :: authenticated'))
   ws.on('open', async () => {
-    console.log('on open :: subscribing to channels')
+    logger.debug('open :: subscribing to channels')
 
     trades = {}
     tsState = {}
     lastTs = {}
     try {
-      console.log('on open :: subscribing trades on', symbol)
+      logger.debug('open :: subscribing trades on %s', symbol)
       await ws.subscribeTrades(symbol)
-      console.log('on open :: subscribed trades on', symbol)
-      console.log('on open :: subscribing status on', statusKey)
+      logger.debug('open :: subscribed trades on %s', symbol)
+      logger.debug('open :: subscribing status on %s', statusKey)
       await ws.subscribeStatus(statusKey)
-      console.log('on open :: subscribed status on', statusKey)
+      logger.debug('open :: subscribed status on %s', statusKey)
     } catch (err) {
-      console.log('on open :: error', err)
+      logger.error('open :: error', err)
     }
   })
 
-  console.log('subscribeTrades :: opening websocket')
+  logger.debug('subscribeTrades :: opening websocket')
   await ws.open()
-  console.log('subscribeTrades :: opened websocket, authenticating')
+  logger.debug('subscribeTrades :: opened websocket, authenticating')
   await ws.auth()
-  console.log('subscribeTrades :: websocket authenticated')
+  logger.debug('subscribeTrades :: websocket authenticated')
   return { close: () => ws.close() }
 }
 

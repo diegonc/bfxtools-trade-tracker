@@ -1,0 +1,38 @@
+const winston = require('winston')
+const { createLogger, format, transports } = winston
+
+function trimString(n, s) {
+  return s.padStart(n)
+}
+
+const trimLevel = format((info, opts) => {
+  return { ...info, level: trimString(6, info.level) }
+})
+
+const loggers = {}
+
+function getLogger(name) {
+  if (loggers[name]) {
+    return loggers[name]
+  }
+
+  return (loggers[name] = createLogger({
+    level: 'silly',
+    format: format.combine(
+      format.label({ label: trimString(8, name) }),
+      format.timestamp(),
+      trimLevel(),
+      format.splat(),
+      format.colorize(),
+      format.printf(
+        ({ timestamp, level, label, message, stack }) =>
+          `${timestamp} ${trimString(6, level)} [${label}] ${message} ${
+            stack || ''
+          }`
+      )
+    ),
+    transports: new transports.Console(),
+  }))
+}
+
+module.exports = getLogger
