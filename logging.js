@@ -26,9 +26,7 @@ function getLogger(name) {
       format.colorize(),
       format.printf(
         ({ timestamp, level, label, message, stack }) =>
-          `${timestamp} ${trimString(6, level)} [${label}] ${message} ${
-            stack || ''
-          }`
+          `${timestamp} ${level} [${label}] ${message} ${stack || ''}`
       )
     ),
     transports: new transports.Console(),
