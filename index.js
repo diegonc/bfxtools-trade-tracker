@@ -334,7 +334,7 @@ async function main(symbol, walletCurrency) {
       const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
       const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
 
-      logger.debug(
+      logger.info(
         '%s - amount=%f, price=%f, fee=%f',
         type,
         -trade.execAmount,
