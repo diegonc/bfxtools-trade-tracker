@@ -19,6 +19,7 @@ function getLogger(name) {
   return (loggers[name] = createLogger({
     level: 'silly',
     format: format.combine(
+      format.errors({ stack: true }),
       format.label({ label: trimString(8, name) }),
       format.timestamp(),
       trimLevel(),
