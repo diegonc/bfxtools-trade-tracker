@@ -246,17 +246,13 @@ async function setupWorkingSheet(walletType, walletCurrency) {
               type: 'NUMBER',
               pattern: '#0.00000000',
             }
-            if (nextRow === 2) {
-              cell.formula = '=ROUNDUP(E3;8)'
-            } else {
-              cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$3:D${nextRow})+IF(C${
-                nextRow + 1
-              }="Buy";(D${nextRow + 1}*E${
-                nextRow + 1
-              });0))/(SUM($D$3:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
-                nextRow + 1
-              };0));8)`
-            }
+            cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$2:D${nextRow})+IF(C${
+              nextRow + 1
+            }="Buy";(D${nextRow + 1}*E${
+              nextRow + 1
+            });0))/(SUM($D$2:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
+              nextRow + 1
+            };0));8)`
             break
           case 8:
             cell.numberFormat = {
