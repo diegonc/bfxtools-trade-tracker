@@ -61,7 +61,7 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     const currentTs = (tsState[statusKey] = tsState[statusKey] || status[7])
     const ts = status[0]
     if (ts >= currentTs && (!lastTs[statusKey] || lastTs[statusKey] !== ts)) {
-      logger.debug('status %O', { currentTs, ts, status })
+      logger.debug('status %j', { currentTs, ts, status })
       const nextTs = status[7]
       const funding = status[11]
       lastTs[statusKey] = ts
