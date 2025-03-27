@@ -25,8 +25,8 @@ async function main() {
         status[14],
         Object.entries(status)
       )
-    } else if (ts - nextTs > 300000) {
-      nextTs = nextTs || status[7]
+    } else if (nextTs && ts - nextTs < 35 * 1000) {
+      nextTs = null
     }
   })
 
