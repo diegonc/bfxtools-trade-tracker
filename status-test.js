@@ -20,8 +20,9 @@ async function main() {
     const ts = status[0]
     if (Math.abs(nextTs - ts) < 30 * 1000) {
       logger.debug(
-        'current funding %d (%j)',
+        'current funding %d @ %d (%j)',
         status[11],
+        status[14],
         Object.entries(status)
       )
     } else if (ts - nextTs > 300000) {
