@@ -84,7 +84,9 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
 
     trades = {}
     tsState = {}
-    lastTs = {}
+    fundingValue = {}
+    markPriceValue = {}
+    nextTsValue = {}
     try {
       logger.debug('open :: subscribing trades on %s', symbol)
       await ws.subscribeTrades(symbol)
