@@ -18,14 +18,14 @@ async function main() {
   ws.onStatus({ key: 'deriv:tBTCF0:USTF0' }, (status) => {
     nextTs = nextTs || status[7]
     const ts = status[0]
-    if (Math.abs(nextTs - ts) < 30 * 1000) {
+    if (Math.abs(nextTs - ts) < 500) {
       logger.debug(
         'current funding %d @ %d (%j)',
         status[11],
         status[14],
         Object.entries(status)
       )
-    } else if (nextTs && ts - nextTs < 35 * 1000) {
+    } else if (nextTs && ts - nextTs < 3 * 500) {
       nextTs = null
     }
   })
