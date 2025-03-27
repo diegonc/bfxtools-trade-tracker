@@ -311,7 +311,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
         'Funding',
         0,
         0,
-        funding.funding,
+        +(this.positionSize * funding.markPrice * funding.funding).toFixed(8),
         0,
       ]
       await this._addRow(inputRow)
@@ -358,7 +358,11 @@ async function main(symbol, walletCurrency) {
               'Funding - [ts=%d nextTs=%d] %f',
               status.ts,
               status.nextTs,
-              status.funding
+              +(
+                tracker.positionSize *
+                status.markPrice *
+                status.funding
+              ).toFixed(8)
             )
             tracker
               .addFunding(status)

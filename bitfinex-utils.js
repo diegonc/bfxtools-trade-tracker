@@ -55,20 +55,26 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     }
   })
 
-  let tsState = {}
-  let lastTs = {}
+  let fundingValue = {}
+  let markPriceValue = {}
+  let nextTsValue = {}
   ws.onStatus({ key: statusKey }, (status) => {
-    const currentTs = (tsState[statusKey] = tsState[statusKey] || status[7])
+    const funding = (fundingValue[statusKey] =
+      fundingValue[statusKey] || status[11])
+    const markPrice = (markPriceValue[statusKey] =
+      markPriceValue[statusKey] || status[14])
+    const nextTs = (nextTsValue[statusKey] =
+      nextTsValue[statusKey] || status[7])
     const ts = status[0]
-    if (ts >= currentTs && (!lastTs[statusKey] || lastTs[statusKey] !== ts)) {
-      logger.debug('status %j', { currentTs, ts, status })
-      const nextTs = status[7]
-      const funding = status[11]
-      lastTs[statusKey] = ts
-      tsState[statusKey] = nextTs
+
+    if (nextTs - ts < 500) {
+      logger.debug('status %j', { ts, nextTs, markPrice, funding })
       if (onStatus) {
-        onStatus({ ts, nextTs, funding })
+        onStatus({ ts, markPrice, funding })
       }
+      fundingValue[statusKey] = status[11]
+      markPriceValue[statusKey] = status[14]
+      nextTsValue[statusKey] = status[7]
     }
   })
 
