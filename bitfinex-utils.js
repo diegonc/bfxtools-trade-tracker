@@ -61,8 +61,7 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   ws.onStatus({ key: statusKey }, (status) => {
     const funding = (fundingValue[statusKey] =
       fundingValue[statusKey] || status[11])
-    const markPrice = (markPriceValue[statusKey] =
-      markPriceValue[statusKey] || status[14])
+    const markPrice = (markPriceValue[statusKey] = status[14])
     const nextTs = (nextTsValue[statusKey] =
       nextTsValue[statusKey] || status[7])
     const ts = status[0]
