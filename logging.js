@@ -2,7 +2,7 @@ const winston = require('winston')
 const { createLogger, format, transports } = winston
 
 function trimString(n, s) {
-  return s.padStart(n)
+  return s.padStart(n).slice(-n)
 }
 
 const trimLevel = format((info, opts) => {
