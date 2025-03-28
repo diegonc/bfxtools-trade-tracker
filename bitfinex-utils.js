@@ -50,17 +50,16 @@ exports.onStatusHandlerCreator = function (statusKey, onStatus) {
       state.currentEventTsValue[statusKey] || status[7])
     const statusTs = status[0]
 
-    if (statusTs < currentEventTs) {
-      state.fundingValue[statusKey] = status[11]
-      state.markPriceValue[statusKey] = status[14]
-    } else {
+    if (currentEventTs != status[7]) {
       const diffTs = Math.abs(currentEventTs - statusTs)
-      logger.debug('status after CET %j', {
+      logger.debug('status [next event ts changed] %j', {
         statusTs,
         currentEventTs,
         nextTs: status[7],
-        markPrice,
-        funding,
+        storedMarkPrice: markPrice,
+        storedFunding: funding,
+        updatedMarkPrice: status[14],
+        updatedFunding: status[11],
         diffTs,
       })
 

@@ -307,7 +307,7 @@ async function setupWorkingSheet(walletType, walletCurrency) {
     async addFunding(funding) {
       const inputRow = [
         '',
-        dayjs.utc(funding.ts),
+        dayjs.utc(funding.statusTs),
         'Funding',
         0,
         0,
@@ -356,7 +356,7 @@ async function main(symbol, walletCurrency) {
           try {
             logger.info(
               'Funding - [ts=%d nextTs=%d] %f',
-              status.ts,
+              status.statusTs,
               status.nextTs,
               +(
                 tracker.positionSize *
