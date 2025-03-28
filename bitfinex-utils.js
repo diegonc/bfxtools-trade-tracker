@@ -22,6 +22,70 @@ async function ledgers(params) {
 
 exports.ledgers = ledgers
 
+function truthyOrZero(o) {
+  return !!o || o === 0
+}
+
+exports.onStatusHandlerCreator = function (statusKey, onStatus) {
+  const state = {
+    fundingValue: {},
+    markPriceValue: {},
+    currentEventTsValue: {},
+  }
+
+  function resetState() {
+    state.fundingValue = {}
+    state.markPriceValue = {}
+    state.currentEventTsValue = {}
+  }
+
+  function onStatusHandler(status) {
+    const funding = (state.fundingValue[statusKey] = truthyOrZero(
+      state.fundingValue[statusKey]
+    )
+      ? state.fundingValue[statusKey]
+      : status[11])
+    const markPrice = (state.markPriceValue[statusKey] = status[14])
+    const currentEventTs = (state.currentEventTsValue[statusKey] =
+      state.currentEventTsValue[statusKey] || status[7])
+    const statusTs = status[0]
+
+    if (statusTs < currentEventTs) {
+      state.fundingValue[statusKey] = status[11]
+      state.markPriceValue[statusKey] = status[14]
+    } else {
+      const diffTs = Math.abs(currentEventTs - statusTs)
+      logger.debug('status after CET %j', {
+        statusTs,
+        currentEventTs,
+        nextTs: status[7],
+        markPrice,
+        funding,
+        diffTs,
+      })
+
+      state.fundingValue[statusKey] = status[11]
+      state.markPriceValue[statusKey] = status[14]
+      state.currentEventTsValue[statusKey] = status[7]
+
+      if (onStatus) {
+        try {
+          onStatus({
+            statusTs,
+            currentEventTs,
+            nextTs: status[7],
+            markPrice,
+            funding,
+          })
+        } catch (err) {
+          logger.error(err)
+        }
+      }
+    }
+  }
+  return { state, resetState, onStatusHandler }
+}
+
 async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   const ws = bfx.ws(2, { autoReconnect: true })
 
@@ -55,27 +119,9 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     }
   })
 
-  let fundingValue = {}
-  let markPriceValue = {}
-  let nextTsValue = {}
-  ws.onStatus({ key: statusKey }, (status) => {
-    const funding = (fundingValue[statusKey] =
-      fundingValue[statusKey] || status[11])
-    const markPrice = (markPriceValue[statusKey] = status[14])
-    const nextTs = (nextTsValue[statusKey] =
-      nextTsValue[statusKey] || status[7])
-    const ts = status[0]
-
-    if (nextTs - ts < 500) {
-      logger.debug('status %j', { ts, nextTs, markPrice, funding })
-      if (onStatus) {
-        onStatus({ ts, markPrice, funding })
-      }
-      fundingValue[statusKey] = status[11]
-      markPriceValue[statusKey] = status[14]
-      nextTsValue[statusKey] = status[7]
-    }
-  })
+  const { resetState: resetOnStatusState, onStatusHandler } =
+    exports.onStatusHandlerCreator(statusKey, onStatus)
+  ws.onStatus({ key: statusKey }, onStatusHandler)
 
   ws.on('error', (e) => logger.debug(e))
   ws.on('auth', () => logger.debug('auth :: authenticated'))
@@ -83,10 +129,7 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
     logger.debug('open :: subscribing to channels')
 
     trades = {}
-    tsState = {}
-    fundingValue = {}
-    markPriceValue = {}
-    nextTsValue = {}
+    resetOnStatusState()
     try {
       logger.debug('open :: subscribing trades on %s', symbol)
       await ws.subscribeTrades(symbol)
