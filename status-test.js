@@ -1,8 +1,9 @@
 require('./config')
 
 const BFX = require('bitfinex-api-node')
-const createLogger = require('./logging')
+const { onStatusHandlerCreator } = require('./bitfinex-utils')
 const winston = require('winston')
+const createLogger = require('./logging')
 
 const logger = createLogger('status-test')
 logger.add(new winston.transports.File({ filename: 'status-test.log' }))
@@ -14,24 +15,15 @@ async function main() {
   const bfx = new BFX({ apiKey, apiSecret })
   const ws = bfx.ws(2, { autoReconnect: true })
 
-  let nextTs = null
-  ws.onStatus({ key: 'deriv:tBTCF0:USTF0' }, (status) => {
-    nextTs = nextTs || status[7]
-    const ts = status[0]
-    if (Math.abs(nextTs - ts) < 500) {
-      logger.debug(
-        'current funding %d @ %d (%j)',
-        status[11],
-        status[14],
-        Object.entries(status)
-      )
-    } else if (nextTs && ts - nextTs < 3 * 500) {
-      nextTs = null
-    }
-  })
+  const statusKey = 'deriv:tBTCF0:USTF0'
+  const { resetState, onStatusHandler } = onStatusHandlerCreator(
+    statusKey,
+    (status) => logger.debug('onStatus %j', status)
+  )
+  ws.onStatus({ key: statusKey }, onStatusHandler)
 
   ws.on('open', () => {
-    nextTs = null
+    resetState()
     ws.subscribeStatus('deriv:tBTCF0:USTF0')
   })
 
