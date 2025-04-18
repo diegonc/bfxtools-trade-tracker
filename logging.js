@@ -1,4 +1,4 @@
-const winston = require('winston')
+import winston from 'winston'
 const { createLogger, format, transports } = winston
 
 function trimString(n, s) {
@@ -11,7 +11,7 @@ const trimLevel = format((info, opts) => {
 
 const loggers = {}
 
-function getLogger(name) {
+export default function getLogger(name) {
   if (loggers[name]) {
     return loggers[name]
   }
@@ -33,5 +33,3 @@ function getLogger(name) {
     transports: new transports.Console(),
   }))
 }
-
-module.exports = getLogger

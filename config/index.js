@@ -1,6 +1,5 @@
-require('dotenv/config')
-
-const fs = require('fs')
+import 'dotenv/config'
+import fs from 'fs'
 
 if (
   !process.env.GOOGLE_ACCOUNT_JSON_FILE ||

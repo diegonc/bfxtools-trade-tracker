@@ -3,7 +3,7 @@
  * @returns {Date object} - javascript date object
  *
  */
-function ValueToDate(GoogleDateValue) {
+export function ValueToDate(GoogleDateValue) {
   return new Date(
     new Date(1899, 11, 30 + Math.floor(GoogleDateValue), 0, 0, 0, 0).getTime() +
       (GoogleDateValue % 1) * 86400000
@@ -16,11 +16,6 @@ function ValueToDate(GoogleDateValue) {
  *
  */
 
-function DateToValue(date) {
+export function DateToValue(date) {
   return 25569 + (date.getTime() - date.getTimezoneOffset() * 60000) / 86400000
-}
-
-module.exports = {
-  ValueToDate,
-  DateToValue,
 }

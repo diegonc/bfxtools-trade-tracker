@@ -1,6 +1,6 @@
-const BFX = require('bitfinex-api-node')
-const dayjs = require('dayjs')
-const createLogger = require('./logging')
+import BFX from 'bitfinex-api-node'
+import dayjs from 'dayjs'
+import createLogger from './logging.js'
 
 const logger = createLogger('bfx')
 
@@ -8,25 +8,21 @@ const apiKey = process.env.BITFINEX_API_KEY
 const apiSecret = process.env.BITFINEX_API_KEY_SECRET
 const bfx = new BFX({ apiKey, apiSecret })
 
-async function getWallets() {
+export async function getWallets() {
   const rest = bfx.rest()
   return await rest.wallets()
 }
 
-exports.getWallets = getWallets
-
-async function ledgers(params) {
+export async function ledgers(params) {
   const rest = bfx.rest()
   return await rest.ledgers(params)
 }
-
-exports.ledgers = ledgers
 
 function truthyOrZero(o) {
   return !!o || o === 0
 }
 
-exports.onStatusHandlerCreator = function (statusKey, onStatus) {
+export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
     fundingValue: {},
     markPriceValue: {},
@@ -85,7 +81,11 @@ exports.onStatusHandlerCreator = function (statusKey, onStatus) {
   return { state, resetState, onStatusHandler }
 }
 
-async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
+export async function subscribeTrades(
+  { symbol, statusKey },
+  onTrade,
+  onStatus
+) {
   const ws = bfx.ws(2, { autoReconnect: true })
 
   let trades = {}
@@ -119,7 +119,7 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   })
 
   const { resetState: resetOnStatusState, onStatusHandler } =
-    exports.onStatusHandlerCreator(statusKey, onStatus)
+    onStatusHandlerCreator(statusKey, onStatus)
   ws.onStatus({ key: statusKey }, onStatusHandler)
 
   ws.on('error', (e) => logger.debug(e))
@@ -149,4 +149,23 @@ async function subscribeTrades({ symbol, statusKey }, onTrade, onStatus) {
   return { close: () => ws.close() }
 }
 
-exports.subscribeTrades = subscribeTrades
+export async function getBalance(type, currency) {
+  const entries = (await ledgers({ filters: { ccy: currency } }))
+    .filter((l) => l[2] === type && l[1] === currency)
+    .sort((a, b) => b[3] - a[3] || b[0] - a[0])
+
+  if (entries.length > 0) {
+    return entries[0][6]
+  } else {
+    /* Fallback to balance info (imprecise) */
+    const wallets = await getWallets().filter(
+      (wallet) =>
+        wallet.type.toLowerCase() === walletType.toLowerCase() &&
+        wallet.currency.toLowerCase() === walletCurrency.toLowerCase()
+    )
+    if (wallets.length > 1) {
+      throw new Error('[INFO] getBalance - duplicated (type, currency) pair')
+    }
+    return wallets[0][2]
+  }
+}
