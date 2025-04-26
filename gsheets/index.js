@@ -336,14 +336,7 @@ export class GoogleSheetsBackend {
     return title
   }
 
-  async _findSheetParameters() {
-    await this._book.loadInfo()
-    let currentSheetTitle =
-      (await this._getCurrentSheet()) || (await this._createNewSheet())
-
-    let sheet = this._book.sheetsByTitle[currentSheetTitle]
-    await sheet.loadCells()
-
+  async _getNextRow(sheet) {
     let inProgress = false
     let positionSize = 0
     let nextRow = 0
@@ -369,8 +362,28 @@ export class GoogleSheetsBackend {
       await sheet.loadCells()
     }
 
+    return { nextRow, positionSize, sheet }
+  }
+
+  async _findSheetParameters() {
+    await this._book.loadInfo()
+    let currentSheetTitle =
+      (await this._getCurrentSheet()) || (await this._createNewSheet())
+
+    let sheet = this._book.sheetsByTitle[currentSheetTitle]
+    await sheet.loadCells()
+
+    const {
+      nextRow,
+      positionSize,
+      sheet: newSheet,
+    } = await this._getNextRow(sheet)
+    if (sheet.title !== newSheet.title) {
+      sheet = newSheet
+    }
+
     return {
-      sheetTitle: currentSheetTitle,
+      sheetTitle: sheet.title,
       inProgress,
       positionSize,
       nextRow,
@@ -399,7 +412,7 @@ export class GoogleSheetsBackend {
   }
 
   async setupWorkingSheet() {
-    const { sheetTitle, inProgress, positionSize, nextRow } =
+    const { sheetTitle, positionSize, nextRow } =
       await this._findSheetParameters()
     this._sheetTitle = sheetTitle
     this._positionSize = positionSize
@@ -408,6 +421,18 @@ export class GoogleSheetsBackend {
   }
 
   async addRow(inputRow) {
+    /* Update parameters in case external modificaitons were made to the spreadsheet */
+    const {
+      nextRow: updatedNextRow,
+      positionSize,
+      sheet,
+    } = await this._getNextRow(this._sheet)
+    this._nextRow = updatedNextRow
+    this._positionSize = positionSize
+    this._sheet = sheet
+    this._sheetTitle = sheet.title
+    /* ***************************************************************************** */
+
     const nextRow = this._nextRow
     for (let i = 0; i < headerValues.length; i++) {
       const cell = this._sheet.getCell(nextRow, i)
