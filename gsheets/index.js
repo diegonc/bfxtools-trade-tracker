@@ -292,7 +292,7 @@ export class GoogleSheetsBackend {
   async _createNewSheet() {
     const indexSheet = this._book.sheetsByTitle['Index']
     const now = dayjs.utc()
-    const dataSheet = await book.addSheet({ headerValues })
+    const dataSheet = await this._book.addSheet({ headerValues })
 
     await dataSheet.loadCells('A1:K2')
     for (let i = 0; i < headerValues.length; i++) {
