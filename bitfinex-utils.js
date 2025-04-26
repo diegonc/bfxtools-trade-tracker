@@ -24,43 +24,29 @@ function truthyOrZero(o) {
 
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
-    fundingValue: {},
-    markPriceValue: {},
     currentEventTsValue: {},
   }
 
   function resetState() {
-    state.fundingValue = {}
-    state.markPriceValue = {}
     state.currentEventTsValue = {}
   }
 
   function onStatusHandler(status) {
-    const funding = (state.fundingValue[statusKey] = truthyOrZero(
-      state.fundingValue[statusKey]
-    )
-      ? state.fundingValue[statusKey]
-      : status[11])
-    const markPrice = (state.markPriceValue[statusKey] = status[14])
     const currentEventTs = (state.currentEventTsValue[statusKey] =
       state.currentEventTsValue[statusKey] || status[7])
     const statusTs = status[0]
 
     if (currentEventTs != status[7]) {
       const diffTs = Math.abs(currentEventTs - statusTs)
-      logger.debug('status [next event ts changed] %j', {
-        statusTs,
-        currentEventTs,
-        nextTs: status[7],
-        storedMarkPrice: markPrice,
-        storedFunding: funding,
-        updatedMarkPrice: status[14],
-        updatedFunding: status[11],
+      logger.debug(
+        'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding=%f',
         diffTs,
-      })
+        status[0],
+        status[7],
+        status[14],
+        status[11]
+      )
 
-      state.fundingValue[statusKey] = status[11]
-      state.markPriceValue[statusKey] = status[14]
       state.currentEventTsValue[statusKey] = status[7]
 
       if (onStatus) {
@@ -69,8 +55,8 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
             statusTs,
             currentEventTs,
             nextTs: status[7],
-            markPrice,
-            funding,
+            markPrice: status[14],
+            funding: status[11],
           })
         } catch (err) {
           logger.error(err)
