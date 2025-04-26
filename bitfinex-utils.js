@@ -1,5 +1,4 @@
 import BFX from 'bitfinex-api-node'
-import dayjs from 'dayjs'
 import createLogger from './logging.js'
 
 const logger = createLogger('bfx')
