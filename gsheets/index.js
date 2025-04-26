@@ -337,6 +337,8 @@ export class GoogleSheetsBackend {
   }
 
   async _getNextRow(sheet) {
+    await sheet.loadCells()
+
     let inProgress = false
     let positionSize = 0
     let nextRow = 0
@@ -371,8 +373,6 @@ export class GoogleSheetsBackend {
       (await this._getCurrentSheet()) || (await this._createNewSheet())
 
     let sheet = this._book.sheetsByTitle[currentSheetTitle]
-    await sheet.loadCells()
-
     const {
       nextRow,
       positionSize,
