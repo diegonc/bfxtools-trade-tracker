@@ -11,7 +11,6 @@ import { DateToValue } from './gsheets-date-utils.js'
 import createLogger from '../logging.js'
 
 dayjs.extend(utc)
-const logger = createLogger('gsheets')
 
 const credentials = JSON.parse(
   fs.readFileSync(process.env.GOOGLE_ACCOUNT_JSON_FILE)
