@@ -2,80 +2,84 @@ import './config/index.js'
 
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc.js'
+import PQueue from 'p-queue'
 
 dayjs.extend(utc)
 
-import {
-  getBalance,
-  getWallets,
-  subscribeTrades,
-  ledgers,
-} from './bitfinex-utils.js'
+import { getBalance, subscribeTrades, ledgers } from './bitfinex-utils.js'
 
 import createLogger from './logging.js'
-import { Gsheet } from './gsheets/index.js'
+import { GoogleSheetsBackend, Gsheet, MemoryBackend } from './gsheets/index.js'
 
 const logger = createLogger('main')
+const queue = new PQueue({ concurrency: 1 })
+
+function handleOnTrade(tracker, trade) {
+  return async function () {
+    const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
+    const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
+
+    logger.info(
+      '%s - amount=%f, price=%f, fee=%f',
+      type,
+      -trade.execAmount,
+      trade.execPrice,
+      fee
+    )
+
+    try {
+      tracker
+        .addTrade(trade)
+        .catch((err) => console.log('main :: addTrade', err))
+    } catch (err) {
+      logger.error('onTrade', err)
+    }
+  }
+}
+
+function handleOnStatus(tracker, status) {
+  return async function () {
+    if (tracker._api._positionSize !== 0) {
+      if (!!status.funding) {
+        try {
+          logger.info(
+            'Funding - [ts=%d nextTs=%d] %f',
+            status.statusTs,
+            status.nextTs,
+            +(
+              tracker._api._positionSize *
+              status.markPrice *
+              status.funding
+            ).toFixed(8)
+          )
+          tracker
+            .addFunding(status)
+            .catch((err) => console.log('main :: addFunding', err))
+        } catch (err) {
+          logger.error('onStatus', err)
+        }
+      }
+    }
+  }
+}
 
 async function main(symbol, walletCurrency) {
-  const tracker = new Gsheet(
-    /* TODO swapable GSheets implementation */
-    null,
-    'margin',
-    walletCurrency
-  )
+  const tracker = new Gsheet(new MemoryBackend('margin', walletCurrency))
   await tracker.setupWorkingSheet()
   logger.info(
     'Working on current sheet %s, nextRow = %d, positionSize = %f',
-    tracker._sheetTitle,
-    tracker._nextRow,
-    tracker._positionSize
+    tracker._api._sheetTitle,
+    tracker._api._nextRow,
+    tracker._api._positionSize
   )
 
   const { close } = await subscribeTrades(
     { symbol, statusKey: `deriv:${symbol}` },
     (trade) => {
-      const fee = Math.abs(trade.fee / (trade.execAmount * trade.execPrice))
-      const type = -trade.execAmount < 0 ? 'Buy' : 'Sell'
-
-      logger.info(
-        '%s - amount=%f, price=%f, fee=%f',
-        type,
-        -trade.execAmount,
-        trade.execPrice,
-        fee
-      )
-
-      try {
-        tracker
-          .addTrade(trade)
-          .catch((err) => console.log('main :: addTrade', err))
-      } catch (err) {
-        logger.error('onTrade', err)
-      }
+      queue.add(handleOnTrade(tracker, trade))
     },
     (status) => {
-      if (tracker._positionSize !== 0) {
-        if (!!status.funding) {
-          try {
-            logger.info(
-              'Funding - [ts=%d nextTs=%d] %f',
-              status.statusTs,
-              status.nextTs,
-              +(
-                tracker._positionSize *
-                status.markPrice *
-                status.funding
-              ).toFixed(8)
-            )
-            tracker
-              .addFunding(status)
-              .catch((err) => console.log('main :: addFunding', err))
-          } catch (err) {
-            logger.error('onStatus', err)
-          }
-        }
-      }
+      queue.add(handleOnStatus(tracker, status))
     }
   )
 
