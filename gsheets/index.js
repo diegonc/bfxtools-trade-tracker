@@ -157,7 +157,6 @@ export class MemoryBackend {
 
     return {
       sheetTitle: currentSheetTitle,
-      inProgress,
       positionSize,
       nextRow,
     }
@@ -184,7 +183,7 @@ export class MemoryBackend {
   }
 
   async setupWorkingSheet() {
-    const { sheetTitle, inProgress, positionSize, nextRow } =
+    const { sheetTitle, positionSize, nextRow } =
       await this._findSheetParameters()
     this._sheetTitle = sheetTitle
     this._positionSize = positionSize
@@ -383,7 +382,6 @@ export class GoogleSheetsBackend {
 
     return {
       sheetTitle: sheet.title,
-      inProgress,
       positionSize,
       nextRow,
     }
