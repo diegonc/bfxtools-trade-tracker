@@ -64,7 +64,7 @@ function handleOnStatus(tracker, status) {
 }
 
 async function main(symbol, walletCurrency) {
-  const tracker = new Gsheet(new MemoryBackend('margin', walletCurrency))
+  const tracker = new Gsheet(new GoogleSheetsBackend('margin', walletCurrency))
   await tracker.setupWorkingSheet()
   logger.info(
     'Working on current sheet %s, nextRow = %d, positionSize = %f',
