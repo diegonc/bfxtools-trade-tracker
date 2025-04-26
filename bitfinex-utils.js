@@ -17,10 +17,6 @@ export async function ledgers(params) {
   return await rest.ledgers(params)
 }
 
-function truthyOrZero(o) {
-  return !!o || o === 0
-}
-
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
     currentEventTsValue: {},
