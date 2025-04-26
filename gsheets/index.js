@@ -50,16 +50,221 @@ const headerValues = [
   'Balance',
 ]
 
-export class Gsheet {
-  constructor(gsheetApi, walletType, walletCurrency) {
-    this._api = gsheetApi
+export class MemoryBackend {
+  constructor(walletType, walletCurrency) {
+    this._logger = createLogger('memorybackend')
+    this._walletType = walletType
+    this._walletCurrency = walletCurrency
+    this._book = [{ title: 'Index', cells: [['Sheet Title', 'Status']] }]
+  }
+
+  _getCurrentSheet() {
+    const sheet = this._book.find((s) => s.title === 'Index')
+    for (const row of sheet.cells) {
+      if (row[1] === 'IN PROGRESS') {
+        return row[0]
+      }
+    }
+    return null
+  }
+
+  _addSheet({ headerValues }) {
+    const row = [...headerValues]
+    const cells = [row]
+    const sheet = { title: 'Untitled', cells }
+    this._book.push(sheet)
+    return sheet
+  }
+
+  _finishSheet(sheetTitle) {
+    const sheet = this._book.find((s) => s.title === 'Index')
+
+    for (const row of sheet.cells) {
+      const title = row[0]
+      if (title === sheetTitle) {
+        row[1] = 'DONE'
+        break
+      }
+    }
+  }
+
+  /* rowNum is one-based index */
+  _ensureRow(sheet, rowNum) {
+    let missing = rowNum - sheet.cells.length
+    if (missing <= 0) {
+      return true
+    }
+
+    /* add `missing` rows to the cells array using the header row as template */
+    const rowTemplate = sheet.cells[0].map((cell) => '')
+    while (missing > 0) {
+      sheet.cells.push([].concat(rowTemplate))
+      missing--
+    }
+    return true
+  }
+
+  async _createNewSheet() {
+    const indexSheet = this._book.find((s) => s.title === 'Index')
+    const now = dayjs.utc()
+    const dataSheet = this._addSheet({ headerValues })
+
+    /* Fill in the Start row */
+    this._ensureRow(dataSheet, 2)
+    dataSheet.cells[1][1] = now.toDate()
+    dataSheet.cells[1][2] = 'Start'
+    dataSheet.cells[1][headerValues.length - 1] = await getBalance(
+      this._walletType,
+      this._walletCurrency
+    )
+
+    const title = now.format('YYYY-MM-DDTHH:mm:ss')
+    dataSheet.title = title
+    /* Add new sheet to index */
+    indexSheet.cells.push([title, 'IN PROGRESS'])
+    return title
+  }
+
+  async _findSheetParameters() {
+    let currentSheetTitle =
+      this._getCurrentSheet() || (await this._createNewSheet())
+
+    let sheet = this._book.find((s) => s.title === currentSheetTitle)
+
+    let inProgress = false
+    let positionSize = 0
+    let nextRow = 0
+    while (nextRow < sheet.cells.length) {
+      const cell = sheet.cells[nextRow][2]
+      if (!cell) {
+        break
+      } else {
+        const size = sheet.cells[nextRow][3]
+        if ((nextRow > 1 && size) || size === 0) {
+          inProgress = true
+          /* XXX convert size to number and default to 0 if NaN */
+          positionSize += +size || 0
+        }
+        nextRow++
+      }
+    }
+
+    if (inProgress && positionSize === 0) {
+      this._finishSheet(sheet.title)
+      currentSheetTitle = await this._createNewSheet()
+      nextRow = 2
+      sheet = this._book.find((s) => s.title === currentSheetTitle)
+    }
+
+    return {
+      sheetTitle: currentSheetTitle,
+      inProgress,
+      positionSize,
+      nextRow,
+    }
+  }
+
+  async _nextSheet() {
+    this._finishSheet(this._sheetTitle)
+    const newSheetTitle = await this._createNewSheet()
+    const nextRow = 2
+    const sheet = this._book.sheetsByTitle[newSheetTitle]
+
+    /* Update this object state */
+    this._sheetTitle = newSheetTitle
+    this._positionSize = 0
+    this._nextRow = nextRow
+    this._sheet = sheet
+
+    this._logger.info(
+      'Working on current sheet %s, nextRow = %d, positionSize = %f',
+      this._sheetTitle,
+      this._nextRow,
+      this._positionSize
+    )
+  }
+
+  async setupWorkingSheet() {
+    const { sheetTitle, inProgress, positionSize, nextRow } =
+      await this._findSheetParameters()
+    this._sheetTitle = sheetTitle
+    this._positionSize = positionSize
+    this._nextRow = nextRow
+    this._sheet = this._book.find((s) => s.title === sheetTitle)
+  }
+
+  async addRow(inputRow) {
+    const nextRow = this._nextRow
+    /* XXX nextRow is a zero-based index while _ensureRow accpts a one-based index */
+    this._ensureRow(this._sheet, nextRow + 1)
+    const prevRow = this._sheet.cells[nextRow - 1]
+    const row = this._sheet.cells[nextRow]
+    for (let i = 0; i < headerValues.length; i++) {
+      switch (i) {
+        case 0:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+          row[i] = inputRow[i]
+          break
+        case 1:
+          row[i] = inputRow[i].toDate()
+          break
+        case 7:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          const H = prevRow[7]
+          const S = this._sheet.cells
+            .slice(1, nextRow)
+            .reduce((s, c) => s + c[3], 0.0)
+          const Bsp = row[2] === 'Buy' ? row[3] * row[4] : 0.0
+          const Bs = row[2] === 'Buy' ? row[3] : 0.0
+          row[i] = ((H * S + Bsp) / (S + Bs)).toFixed(8)
+          break
+        case 8:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          row[i] = row[2] === 'Sell' ? (row[4] - row[7]) * row[3] : 0.0
+          break
+        case 9:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          row[i] = -Math.abs((row[3] * row[4] * row[6]).toFixed(8))
+          break
+        case 10:
+          // 0 1 2 3 4 5 6 7 8 9 10
+          // A B C D E F G H I J  K
+          row[i] = row[8] + prevRow[10] + row[9] + row[5]
+          break
+      }
+    }
+
+    this._logger.info(`addRow: ${JSON.stringify(inputRow)}`)
+    this._logger.debug('sheet:')
+    for (let i = 0; i < this._sheet.length; i++) {
+      this._logger.debug(`[${i}] ${JSON.stringify(this._sheet[i])}`)
+    }
+
+    this._nextRow++
+    this._positionSize += inputRow[3]
+    if (this._positionSize === 0) {
+      await this._nextSheet()
+    }
+  }
+}
+
+export class GoogleSheetsBackend {
+  constructor(walletType, walletCurrency) {
+    this._logger = createLogger('gsheetsbackend')
     this._book = new GoogleSpreadsheet(workbookId, jwt)
     this._walletType = walletType
     this._walletCurrency = walletCurrency
   }
 
-  async _getCurrentSheet(book) {
-    const sheet = book.sheetsByTitle['Index']
+  async _getCurrentSheet() {
+    const sheet = this._book.sheetsByTitle['Index']
     const count = sheet.rowCount
     const rows = await sheet.getRows({ offset: 0, limit: count })
     for (const row of rows) {
@@ -72,8 +277,8 @@ export class Gsheet {
     return null
   }
 
-  async _finishSheet(book, sheetTitle) {
-    const sheet = book.sheetsByTitle['Index']
+  async _finishSheet(sheetTitle) {
+    const sheet = this._book.sheetsByTitle['Index']
     const count = sheet.rowCount
     const rows = await sheet.getRows({ offset: 0, limit: count })
     for (const row of rows) {
@@ -86,8 +291,8 @@ export class Gsheet {
     }
   }
 
-  async _createNewSheet(book, walletType, walletCurrency) {
-    const indexSheet = book.sheetsByTitle['Index']
+  async _createNewSheet() {
+    const indexSheet = this._book.sheetsByTitle['Index']
     const now = dayjs.utc()
     const dataSheet = await book.addSheet({ headerValues })
 
@@ -108,7 +313,7 @@ export class Gsheet {
     const typeCell = dataSheet.getCell(1, 2)
     typeCell.value = 'Start'
     const balanceCell = dataSheet.getCell(1, headerValues.length - 1)
-    const balance = await getBalance(walletType, walletCurrency)
+    const balance = await getBalance(this._walletType, this._walletCurrency)
     balanceCell.numberFormat = {
       type: 'NUMBER',
       pattern: '#0.00000000',
@@ -131,11 +336,10 @@ export class Gsheet {
     return title
   }
 
-  async _findSheetParameters(walletType, walletCurrency) {
+  async _findSheetParameters() {
     await this._book.loadInfo()
     let currentSheetTitle =
-      (await this._getCurrentSheet(this._book)) ||
-      (await this._createNewSheet(this._book, walletType, walletCurrency))
+      (await this._getCurrentSheet()) || (await this._createNewSheet())
 
     let sheet = this._book.sheetsByTitle[currentSheetTitle]
     await sheet.loadCells()
@@ -158,12 +362,8 @@ export class Gsheet {
     }
 
     if (inProgress && positionSize === 0) {
-      await this._finishSheet(this._book, sheet.title)
-      currentSheetTitle = await this._createNewSheet(
-        this._book,
-        walletType,
-        walletCurrency
-      )
+      await this._finishSheet(sheet.title)
+      currentSheetTitle = await this._createNewSheet()
       nextRow = 2
       sheet = this._book.sheetsByTitle[currentSheetTitle]
       await sheet.loadCells()
@@ -177,23 +377,9 @@ export class Gsheet {
     }
   }
 
-  async setupWorkingSheet(walletType, walletCurrency) {
-    const { sheetTitle, inProgress, positionSize, nextRow } =
-      await this._findSheetParameters(walletType, walletCurrency)
-
-    this._sheetTitle = sheetTitle
-    this._positionSize = positionSize
-    this._nextRow = nextRow
-    this._sheet = this._book.sheetsByTitle[sheetTitle]
-  }
-
   async _nextSheet() {
-    await this._finishSheet(this._book, this._sheetTitle)
-    const newSheetTitle = await this._createNewSheet(
-      this._book,
-      this._walletType,
-      this._walletCurrency
-    )
+    await this._finishSheet(this._sheetTitle)
+    const newSheetTitle = await this._createNewSheet()
     const nextRow = 2
     const sheet = this._book.sheetsByTitle[newSheetTitle]
     await sheet.loadCells()
@@ -204,7 +390,7 @@ export class Gsheet {
     this._nextRow = nextRow
     this._sheet = sheet
 
-    logger.info(
+    this._logger.info(
       'Working on current sheet %s, nextRow = %d, positionSize = %f',
       this._sheetTitle,
       this._nextRow,
@@ -212,7 +398,16 @@ export class Gsheet {
     )
   }
 
-  async _addRow(inputRow) {
+  async setupWorkingSheet() {
+    const { sheetTitle, inProgress, positionSize, nextRow } =
+      await this._findSheetParameters()
+    this._sheetTitle = sheetTitle
+    this._positionSize = positionSize
+    this._nextRow = nextRow
+    this._sheet = this._book.sheetsByTitle[sheetTitle]
+  }
+
+  async addRow(inputRow) {
     const nextRow = this._nextRow
     for (let i = 0; i < headerValues.length; i++) {
       const cell = this._sheet.getCell(nextRow, i)
@@ -292,6 +487,23 @@ export class Gsheet {
       }
     }
     await this._sheet.saveUpdatedCells()
+
+    this._nextRow++
+    this._positionSize += inputRow[3]
+    if (this._positionSize === 0) {
+      await this._nextSheet()
+    }
+  }
+}
+
+export class Gsheet {
+  constructor(gsheetApi) {
+    this._api = gsheetApi
+    this._logger = createLogger('gsheet')
+  }
+
+  async setupWorkingSheet() {
+    await this._api.setupWorkingSheet()
   }
 
   async addTrade(trade) {
@@ -306,24 +518,37 @@ export class Gsheet {
       0,
       fee,
     ]
-    await this._addRow(inputRow)
-    this._nextRow++
-    this._positionSize += -trade.execAmount
-    if (this._positionSize === 0) {
-      await this._nextSheet()
-    }
+    await this._api.addRow(inputRow)
   }
 
   async addFunding(funding) {
-    const inputRow = [
-      '',
-      dayjs.utc(funding.statusTs),
-      'Funding',
-      0,
-      0,
-      +(this._positionSize * funding.markPrice * funding.funding).toFixed(8),
-      0,
-    ]
-    await this._addRow(inputRow)
+    const fundingAmount = +(
+      this._api._positionSize *
+      funding.markPrice *
+      funding.funding
+    ).toFixed(8)
+
+    this._logger.debug(
+      'adding funding: ts=%d nextTs=%d funding=%f markPrice=%f',
+      funding.status[0],
+      funding.status[7],
+      funding.status[11],
+      funding.status[14]
+    )
+
+    this._logger.debug('calculated funding: %f', fundingAmount)
+
+    if (Number.isFinite(fundingAmount) && fundingAmount !== 0) {
+      const inputRow = [
+        '',
+        dayjs.utc(funding.statusTs),
+        'Funding',
+        0,
+        0,
+        fundingAmount,
+        0,
+      ]
+      await this._api.addRow(inputRow)
+    }
   }
 }
