@@ -1,5 +1,9 @@
 import BFX from 'bitfinex-api-node'
+import fs from 'fs'
+
 import createLogger from './logging.js'
+
+const STATUS_LOG_SIZE = 50
 
 const logger = createLogger('bfx')
 
@@ -19,20 +23,44 @@ export async function ledgers(params) {
 
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
+    statusLog: [],
     currentEventTsValue: {},
+    logEventTsValue: {},
   }
 
   function resetState() {
+    state.statusLog = []
     state.currentEventTsValue = {}
+    state.logEventTsValue = {}
   }
 
   function onStatusHandler(status) {
     const currentEventTs = (state.currentEventTsValue[statusKey] =
       state.currentEventTsValue[statusKey] || status[7])
+    const logEventTs = (state.logEventTsValue[statusKey] =
+      state.logEventTsValue[statusKey] || status[7])
     const statusTs = status[0]
 
+    state.statusLog = state.statusLog.concat([{
+      ts: status[0],
+      currentTs: currentEventTs,
+      nextTs: status[7],
+      markPrice: status[14],
+      funding: status[11],
+    }]).slice(-STATUS_LOG_SIZE)
+
+    if ((status[0] - logEventTs) > 15000) {
+      state.statusLog.forEach((log, index) => {
+        logger.silly("log [%d] ts=%d currentTs=%d nextTs=%d funding=%f markPrice=%f",
+          index, log.ts, log.currentTs, log.nextTs, log.funding, log.markPrice)
+      })
+      state.statusLog = []
+      state.logEventTsValue[statusKey] = status[7]
+    }
+
+
     if (currentEventTs != status[7]) {
-      const diffTs = Math.abs(currentEventTs - statusTs)
+      const diffTs = (-currentEventTs + statusTs)
       logger.debug(
         'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding=%f',
         diffTs,
@@ -61,6 +89,10 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
   }
   return { state, resetState, onStatusHandler }
 }
+
+const logFromTs = new Date(2025, 3, 28, 0, 0, 0, 0).getTime()
+const logToTs = new Date(2025, 3, 29, 0, 0, 0, 0).getTime()
+const logFile = "./status-log.txt"
 
 export async function subscribeTrades(
   { symbol, statusKey },
@@ -102,6 +134,13 @@ export async function subscribeTrades(
   const { resetState: resetOnStatusState, onStatusHandler } =
     onStatusHandlerCreator(statusKey, onStatus)
   ws.onStatus({ key: statusKey }, onStatusHandler)
+
+  /* Log a whole day to replay later for testing */
+  ws.onStatus({ key: statusKey }, (status) => {
+    if (status[0] >= logFromTs && status[0] <= logToTs) {
+      fs.writeFileSync(logFile, JSON.stringify(status) + '\n', { flag: 'a' })
+    }
+  })
 
   ws.on('error', (e) => logger.debug(e))
   ws.on('auth', () => logger.debug('auth :: authenticated'))
