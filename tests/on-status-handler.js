@@ -1,5 +1,4 @@
 import { createReadStream } from 'fs'
-import path from 'path'
 import { createInterface } from 'readline/promises'
 import { Decompressor } from 'lzma-native'
 
@@ -13,7 +12,7 @@ import createLogger from '../logging.js'
   )
 
   const readStream = createReadStream(
-    path.join(import.meta.dirname, 'status-log.txt.xz')
+    new URL('./status-log.txt.xz', import.meta.url)
   )
   const decompStream = Decompressor()
   const rl = createInterface({
