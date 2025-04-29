@@ -11,13 +11,13 @@ const trimLevel = format((info, opts) => {
 
 const loggers = {}
 
-export default function getLogger(name) {
+export default function getLogger(name, level) {
   if (loggers[name]) {
     return loggers[name]
   }
 
   return (loggers[name] = createLogger({
-    level: 'silly',
+    level: level || process.env.LOG_LEVEL || 'silly',
     format: format.combine(
       format.errors({ stack: true }),
       format.label({ label: trimString(8, name) }),
