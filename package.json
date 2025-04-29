@@ -19,5 +19,8 @@
     "google-spreadsheet": "^4.1.4",
     "p-queue": "^8.1.0",
     "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "lzma-native": "^8.0.6"
   }
 }

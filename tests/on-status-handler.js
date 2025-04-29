@@ -1,7 +1,10 @@
 import { createReadStream } from 'fs'
+import path from 'path'
 import { createInterface } from 'readline/promises'
-import { onStatusHandlerCreator } from '../bitfinex-utils'
-import createLogger from '../logging'
+import { Decompressor } from 'lzma-native'
+
+import { onStatusHandlerCreator } from '../bitfinex-utils.js'
+import createLogger from '../logging.js'
 ;(async function main() {
   const logger = createLogger('test-status-handler')
   const { state, resetState, onStatusHandler } = onStatusHandlerCreator(
@@ -9,11 +12,17 @@ import createLogger from '../logging'
     (funding) => logger.debug('funding %j', funding)
   )
 
-  const stream = createReadStream('./status-log.txt')
+  const readStream = createReadStream(
+    path.join(import.meta.dirname, 'status-log.txt.xz')
+  )
+  const decompStream = Decompressor()
   const rl = createInterface({
-    input: stream,
+    input: decompStream,
     crlfDelay: Infinity,
   })
+
+  readStream.pipe(decompStream)
+
   for await (const line of rl) {
     onStatusHandler(JSON.parse(line))
   }
