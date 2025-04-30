@@ -3,8 +3,6 @@ import fs from 'fs'
 
 import createLogger from './logging.js'
 
-const STATUS_LOG_SIZE = 50
-
 const logger = createLogger('bfx')
 
 const apiKey = process.env.BITFINEX_API_KEY
@@ -23,41 +21,17 @@ export async function ledgers(params) {
 
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
-    statusLog: [],
     currentEventTsValue: {},
-    logEventTsValue: {},
   }
 
   function resetState() {
-    state.statusLog = []
     state.currentEventTsValue = {}
-    state.logEventTsValue = {}
   }
 
   function onStatusHandler(status) {
     const currentEventTs = (state.currentEventTsValue[statusKey] =
       state.currentEventTsValue[statusKey] || status[7])
-    const logEventTs = (state.logEventTsValue[statusKey] =
-      state.logEventTsValue[statusKey] || status[7])
     const statusTs = status[0]
-
-    state.statusLog = state.statusLog.concat([{
-      ts: status[0],
-      currentTs: currentEventTs,
-      nextTs: status[7],
-      markPrice: status[14],
-      funding: status[11],
-    }]).slice(-STATUS_LOG_SIZE)
-
-    if ((status[0] - logEventTs) > 15000) {
-      state.statusLog.forEach((log, index) => {
-        logger.silly("log [%d] ts=%d currentTs=%d nextTs=%d funding=%f markPrice=%f",
-          index, log.ts, log.currentTs, log.nextTs, log.funding, log.markPrice)
-      })
-      state.statusLog = []
-      state.logEventTsValue[statusKey] = status[7]
-    }
-
 
     if (currentEventTs != status[7]) {
       const diffTs = (-currentEventTs + statusTs)
