@@ -64,9 +64,6 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
   return { state, resetState, onStatusHandler }
 }
 
-const logFromTs = new Date(2025, 3, 28, 0, 0, 0, 0).getTime()
-const logToTs = new Date(2025, 3, 29, 0, 0, 0, 0).getTime()
-const logFile = "./status-log.txt"
 
 export async function subscribeTrades(
   { symbol, statusKey },
@@ -108,13 +105,6 @@ export async function subscribeTrades(
   const { resetState: resetOnStatusState, onStatusHandler } =
     onStatusHandlerCreator(statusKey, onStatus)
   ws.onStatus({ key: statusKey }, onStatusHandler)
-
-  /* Log a whole day to replay later for testing */
-  ws.onStatus({ key: statusKey }, (status) => {
-    if (status[0] >= logFromTs && status[0] <= logToTs) {
-      fs.writeFileSync(logFile, JSON.stringify(status) + '\n', { flag: 'a' })
-    }
-  })
 
   ws.on('error', (e) => logger.debug(e))
   ws.on('auth', () => logger.debug('auth :: authenticated'))
