@@ -54,6 +54,7 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
             nextTs: status[7],
             markPrice: status[14],
             funding: status[11],
+            status,
           })
         } catch (err) {
           logger.error(err)
