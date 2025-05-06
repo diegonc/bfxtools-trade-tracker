@@ -6,7 +6,7 @@ import PQueue from 'p-queue'
 
 dayjs.extend(utc)
 
-import { getBalance, subscribeTrades, ledgers } from './bitfinex-utils.js'
+import { BFXApi, getBalance, subscribeTrades, ledgers } from './bitfinex-utils.js'
 
 import createLogger from './logging.js'
 import { GoogleSheetsBackend, Gsheet, MemoryBackend } from './gsheets/index.js'
@@ -64,7 +64,7 @@ function handleOnStatus(tracker, status) {
 }
 
 async function main(symbol, walletCurrency) {
-  const tracker = new Gsheet(new GoogleSheetsBackend('margin', walletCurrency))
+  const tracker = new Gsheet(new GoogleSheetsBackend('margin', walletCurrency, BFXApi))
   await tracker.setupWorkingSheet()
   logger.info(
     'Working on current sheet %s, nextRow = %d, positionSize = %f',

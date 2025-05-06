@@ -73,7 +73,6 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
   return { state, resetState, onStatusHandler }
 }
 
-
 export async function subscribeTrades(
   { symbol, statusKey },
   onTrade,
@@ -161,4 +160,8 @@ export async function getBalance(type, currency) {
     }
     return wallets[0][2]
   }
+}
+
+export const BFXApi = {
+  getBalance,
 }
