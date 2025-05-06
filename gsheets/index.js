@@ -6,7 +6,7 @@ import fs from 'fs'
 import { JWT } from 'google-auth-library'
 import { GoogleSpreadsheet } from 'google-spreadsheet'
 
-import { getBalance } from '../bitfinex-utils.js'
+import { BFXApi } from '../bitfinex-utils.js'
 import { DateToValue } from './gsheets-date-utils.js'
 import createLogger from '../logging.js'
 
@@ -50,11 +50,12 @@ const headerValues = [
 ]
 
 export class MemoryBackend {
-  constructor(walletType, walletCurrency) {
+  constructor(walletType, walletCurrency, bfxApi) {
     this._logger = createLogger('memorybackend')
     this._walletType = walletType
     this._walletCurrency = walletCurrency
     this._book = [{ title: 'Index', cells: [['Sheet Title', 'Status']] }]
+    this._bfx = bfxApi
   }
 
   _getCurrentSheet() {
@@ -112,7 +113,7 @@ export class MemoryBackend {
     this._ensureRow(dataSheet, 2)
     dataSheet.cells[1][1] = now.toDate()
     dataSheet.cells[1][2] = 'Start'
-    dataSheet.cells[1][headerValues.length - 1] = await getBalance(
+    dataSheet.cells[1][headerValues.length - 1] = await this._bfx.getBalance(
       this._walletType,
       this._walletCurrency
     )
@@ -254,11 +255,12 @@ export class MemoryBackend {
 }
 
 export class GoogleSheetsBackend {
-  constructor(walletType, walletCurrency) {
+  constructor(walletType, walletCurrency, bfxApi) {
     this._logger = createLogger('gsheetsbackend')
     this._book = new GoogleSpreadsheet(workbookId, jwt)
     this._walletType = walletType
     this._walletCurrency = walletCurrency
+    this._bfx = bfxApi
   }
 
   async _getCurrentSheet() {
@@ -311,7 +313,10 @@ export class GoogleSheetsBackend {
     const typeCell = dataSheet.getCell(1, 2)
     typeCell.value = 'Start'
     const balanceCell = dataSheet.getCell(1, headerValues.length - 1)
-    const balance = await getBalance(this._walletType, this._walletCurrency)
+    const balance = await this._bfx.getBalance(
+      this._walletType,
+      this._walletCurrency
+    )
     balanceCell.numberFormat = {
       type: 'NUMBER',
       pattern: '#0.00000000',
