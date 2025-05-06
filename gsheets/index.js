@@ -214,10 +214,10 @@ export class MemoryBackend {
         case 7:
           // 0 1 2 3 4 5 6 7
           // A B C D E F G H
-          const H = prevRow[7]
+          const H = (prevRow[7] || 0)
           const S = this._sheet.cells
             .slice(1, nextRow)
-            .reduce((s, c) => s + c[3], 0.0)
+            .reduce((s, c) => s + (c[3] || 0), 0)
           const Bsp = row[2] === 'Buy' ? row[3] * row[4] : 0.0
           const Bs = row[2] === 'Buy' ? row[3] : 0.0
           row[i] = ((H * S + Bsp) / (S + Bs)).toFixed(8)
