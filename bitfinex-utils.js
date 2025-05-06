@@ -34,6 +34,14 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
     const statusTs = status[0]
 
     if (currentEventTs != status[7]) {
+      /* Got new funding event TS, wait until the status TS is
+       * bigger than the last event TS before triggering the onStatus
+       * callback and updating the currentEventTsValue to the new one.
+       */
+      if (status[0] < currentEventTs) {
+        return
+      }
+
       const diffTs = (-currentEventTs + statusTs)
       logger.debug(
         'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding=%f',
