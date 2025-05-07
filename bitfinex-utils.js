@@ -22,15 +22,18 @@ export async function ledgers(params) {
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
     currentEventTsValue: {},
+    fundingValue: {}
   }
 
   function resetState() {
     state.currentEventTsValue = {}
+    state.fundingValue = {}
   }
 
   function onStatusHandler(status) {
     const currentEventTs = (state.currentEventTsValue[statusKey] =
       state.currentEventTsValue[statusKey] || status[7])
+    const funding = (state.fundingValue[statusKey] = (status[11] || state.fundingValue[statusKey]))
     const statusTs = status[0]
 
     if (currentEventTs != status[7]) {
@@ -44,15 +47,17 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
 
       const diffTs = (-currentEventTs + statusTs)
       logger.debug(
-        'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding=%f',
+        'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding0=%f, funding1=%f',
         diffTs,
         status[0],
         status[7],
         status[14],
+        funding,
         status[11]
       )
 
       state.currentEventTsValue[statusKey] = status[7]
+      state.fundingValue[statusKey] = status[11]
 
       if (onStatus) {
         try {
@@ -61,7 +66,7 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
             currentEventTs,
             nextTs: status[7],
             markPrice: status[14],
-            funding: status[11],
+            funding,
             status,
           })
         } catch (err) {
