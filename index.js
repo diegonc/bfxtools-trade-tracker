@@ -2,7 +2,7 @@ import './config/index.js'
 
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc.js'
-import { RetryableQueue } from './queue'
+import { RetryableQueue } from './queue/index.js'
 
 dayjs.extend(utc)
 
