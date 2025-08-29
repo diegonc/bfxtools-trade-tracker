@@ -33,11 +33,10 @@ function handleOnTrade(tracker, trade) {
     )
 
     try {
-      tracker
-        .addTrade(trade)
-        .catch((err) => console.log('main :: addTrade', err))
+      return tracker.addTrade(trade)
     } catch (err) {
-      logger.error('onTrade', err)
+      logger.error(`addTrade :: ${err.message}`, err)
+      throw err
     }
   }
 }
@@ -57,11 +56,10 @@ function handleOnStatus(tracker, status) {
               status.funding
             ).toFixed(8)
           )
-          tracker
-            .addFunding(status)
-            .catch((err) => console.log('main :: addFunding', err))
+          return tracker.addFunding(status)
         } catch (err) {
-          logger.error('onStatus', err)
+          logger.error(`addFunding :: ${err.message}`, err)
+          throw err
         }
       }
     }
