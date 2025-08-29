@@ -2,17 +2,22 @@ import './config/index.js'
 
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc.js'
-import PQueue from 'p-queue'
+import { RetryableQueue } from './queue'
 
 dayjs.extend(utc)
 
-import { BFXApi, getBalance, subscribeTrades, ledgers } from './bitfinex-utils.js'
+import {
+  BFXApi,
+  getBalance,
+  subscribeTrades,
+  ledgers,
+} from './bitfinex-utils.js'
 
 import createLogger from './logging.js'
 import { GoogleSheetsBackend, Gsheet, MemoryBackend } from './gsheets/index.js'
 
 const logger = createLogger('main')
-const queue = new PQueue({ concurrency: 1 })
+const queue = new RetryableQueue({ concurrency: 1 })
 
 function handleOnTrade(tracker, trade) {
   return async function () {
@@ -64,7 +69,9 @@ function handleOnStatus(tracker, status) {
 }
 
 async function main(symbol, walletCurrency) {
-  const tracker = new Gsheet(new GoogleSheetsBackend('margin', walletCurrency, BFXApi))
+  const tracker = new Gsheet(
+    new GoogleSheetsBackend('margin', walletCurrency, BFXApi)
+  )
   await tracker.setupWorkingSheet()
   logger.info(
     'Working on current sheet %s, nextRow = %d, positionSize = %f',
@@ -76,10 +83,18 @@ async function main(symbol, walletCurrency) {
   const { close } = await subscribeTrades(
     { symbol, statusKey: `deriv:${symbol}` },
     (trade) => {
-      queue.add(handleOnTrade(tracker, trade))
+      queue
+        .addRetryableTask(handleOnTrade(tracker, trade))
+        .catch((err) =>
+          logger.error(`onTrade :: all retries failed: ${err.message}`, err)
+        )
     },
     (status) => {
-      queue.add(handleOnStatus(tracker, status))
+      queue
+        .addRetryableTask(handleOnStatus(tracker, status))
+        .catch((err) =>
+          logger.error(`onStatus :: all retries failed: ${err.message}`, err)
+        )
     }
   )
 
