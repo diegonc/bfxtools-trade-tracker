@@ -214,7 +214,7 @@ export class MemoryBackend {
         case 7:
           // 0 1 2 3 4 5 6 7
           // A B C D E F G H
-          const H = (prevRow[7] || 0)
+          const H = prevRow[7] || 0
           const S = this._sheet.cells
             .slice(1, nextRow)
             .reduce((s, c) => s + (c[3] || 0), 0)
@@ -556,9 +556,10 @@ export class Gsheet {
     ).toFixed(8)
 
     this._logger.debug(
-      'adding funding: ts=%d nextTs=%d funding=%f markPrice=%f',
+      'adding funding: ts=%d nextTs=%d funding0=%f funding1=%f markPrice=%f',
       funding.status[0],
       funding.status[7],
+      funding.funding,
       funding.status[11],
       funding.status[14]
     )
