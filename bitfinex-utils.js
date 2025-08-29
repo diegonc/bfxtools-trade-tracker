@@ -1,4 +1,6 @@
 import BFX from 'bitfinex-api-node'
+import fs from 'fs'
+
 import createLogger from './logging.js'
 
 const logger = createLogger('bfx')
@@ -20,29 +22,42 @@ export async function ledgers(params) {
 export function onStatusHandlerCreator(statusKey, onStatus) {
   const state = {
     currentEventTsValue: {},
+    fundingValue: {}
   }
 
   function resetState() {
     state.currentEventTsValue = {}
+    state.fundingValue = {}
   }
 
   function onStatusHandler(status) {
     const currentEventTs = (state.currentEventTsValue[statusKey] =
       state.currentEventTsValue[statusKey] || status[7])
+    const funding = (state.fundingValue[statusKey] = (status[11] || state.fundingValue[statusKey]))
     const statusTs = status[0]
 
     if (currentEventTs != status[7]) {
-      const diffTs = Math.abs(currentEventTs - statusTs)
+      /* Got new funding event TS, wait until the status TS is
+       * bigger than the last event TS before triggering the onStatus
+       * callback and updating the currentEventTsValue to the new one.
+       */
+      if (status[0] < currentEventTs) {
+        return
+      }
+
+      const diffTs = (-currentEventTs + statusTs)
       logger.debug(
-        'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding=%f',
+        'status [next event ts changed diffTs=%d] eventTs=%d, nextTs=%d, markPrice=%f, funding0=%f, funding1=%f',
         diffTs,
         status[0],
         status[7],
         status[14],
+        funding,
         status[11]
       )
 
       state.currentEventTsValue[statusKey] = status[7]
+      state.fundingValue[statusKey] = status[11]
 
       if (onStatus) {
         try {
@@ -51,7 +66,8 @@ export function onStatusHandlerCreator(statusKey, onStatus) {
             currentEventTs,
             nextTs: status[7],
             markPrice: status[14],
-            funding: status[11],
+            funding,
+            status,
           })
         } catch (err) {
           logger.error(err)
@@ -149,4 +165,8 @@ export async function getBalance(type, currency) {
     }
     return wallets[0][2]
   }
+}
+
+export const BFXApi = {
+  getBalance,
 }
