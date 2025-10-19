@@ -119,7 +119,7 @@ export async function subscribeTrades(
     onStatusHandlerCreator(statusKey, onStatus)
   ws.onStatus({ key: statusKey }, onStatusHandler)
 
-  ws.on('error', (e) => logger.debug(e))
+  ws.on('error', (e) => logger.debug("ws :: error %j", e))
   ws.on('auth', () => logger.debug('auth :: authenticated'))
   ws.on('open', async () => {
     logger.debug('open :: subscribing to channels')
