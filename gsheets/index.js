@@ -149,7 +149,7 @@ export class MemoryBackend {
       }
     }
 
-    if (inProgress && positionSize === 0) {
+    if (inProgress && positionSize < 0.00000001) {
       this._finishSheet(sheet.title)
       currentSheetTitle = await this._createNewSheet()
       nextRow = 2
@@ -248,7 +248,7 @@ export class MemoryBackend {
 
     this._nextRow++
     this._positionSize += inputRow[3]
-    if (this._positionSize === 0) {
+    if (this._positionSize < 0.00000001) {
       await this._nextSheet()
     }
   }
@@ -359,7 +359,7 @@ export class GoogleSheetsBackend {
       }
     }
 
-    if (inProgress && positionSize === 0) {
+    if (inProgress && positionSize < 0.00000001) {
       await this._finishSheet(sheet.title)
       currentSheetTitle = await this._createNewSheet()
       nextRow = 2
@@ -517,7 +517,7 @@ export class GoogleSheetsBackend {
 
     this._nextRow++
     this._positionSize += inputRow[3]
-    if (this._positionSize === 0) {
+    if (this._positionSize < 0.00000001) {
       await this._nextSheet()
     }
   }
