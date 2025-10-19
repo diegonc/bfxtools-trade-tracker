@@ -361,7 +361,7 @@ export class GoogleSheetsBackend {
 
     if (inProgress && positionSize < 0.00000001) {
       await this._finishSheet(sheet.title)
-      currentSheetTitle = await this._createNewSheet()
+      const currentSheetTitle = await this._createNewSheet()
       nextRow = 2
       sheet = this._book.sheetsByTitle[currentSheetTitle]
       await sheet.loadCells()
