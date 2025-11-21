@@ -149,7 +149,7 @@ export class MemoryBackend {
       }
     }
 
-    if (inProgress && positionSize < 0.00000001) {
+    if (inProgress && Math.abs(positionSize) < 0.00000001) {
       this._finishSheet(sheet.title)
       currentSheetTitle = await this._createNewSheet()
       nextRow = 2
@@ -248,7 +248,7 @@ export class MemoryBackend {
 
     this._nextRow++
     this._positionSize += inputRow[3]
-    if (this._positionSize < 0.00000001) {
+    if (Math.abs(this._positionSize) < 0.00000001) {
       await this._nextSheet()
     }
   }
