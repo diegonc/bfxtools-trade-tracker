@@ -359,7 +359,7 @@ export class GoogleSheetsBackend {
       }
     }
 
-    if (inProgress && positionSize < 0.00000001) {
+    if (inProgress && Math.abs(positionSize) < 0.00000001) {
       await this._finishSheet(sheet.title)
       const currentSheetTitle = await this._createNewSheet()
       nextRow = 2
