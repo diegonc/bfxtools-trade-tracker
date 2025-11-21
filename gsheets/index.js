@@ -517,7 +517,7 @@ export class GoogleSheetsBackend {
 
     this._nextRow++
     this._positionSize += inputRow[3]
-    if (this._positionSize < 0.00000001) {
+    if (Math.abs(this._positionSize) < 0.00000001) {
       await this._nextSheet()
     }
   }
