@@ -144,7 +144,7 @@ export async function subscribeTrades(
   logger.debug('subscribeTrades :: opened websocket, authenticating')
   await ws.auth()
   logger.debug('subscribeTrades :: websocket authenticated')
-  return { close: () => ws.close() }
+  return { close: () => ws.close(), ws }
 }
 
 export async function getBalance(type, currency) {
