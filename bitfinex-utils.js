@@ -137,6 +137,7 @@ export async function subscribeTrades(
       logger.error('open :: error', err)
     }
   })
+  ws.on('close', () => logger.debug('close :: websocket closed'))
 
   logger.debug('subscribeTrades :: opening websocket')
   await ws.open()
