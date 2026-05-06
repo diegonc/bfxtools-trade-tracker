@@ -78,7 +78,7 @@ async function main(symbol, walletCurrency) {
     tracker._api._positionSize
   )
 
-  const { close } = await subscribeTrades(
+  const { close, ws } = await subscribeTrades(
     { symbol, statusKey: `deriv:${symbol}` },
     (trade) => {
       queue
@@ -96,8 +96,15 @@ async function main(symbol, walletCurrency) {
     }
   )
 
+  function ping() {
+    logger.debug(`ping :: ws isAuthenticated: ${ws._isAuthenticated}`)
+  }
+
+  const ref = setInterval(ping, 5000);
+
   function term() {
     logger.debug('Closing WS connection...')
+    clearInterval(ref)
     close().then((_) => {
       logger.debug('Exiting...')
       process.exit(0)
