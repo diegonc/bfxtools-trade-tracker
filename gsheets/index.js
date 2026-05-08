@@ -5,10 +5,12 @@ import utc from 'dayjs/plugin/utc.js'
 import fs from 'fs'
 import { JWT } from 'google-auth-library'
 import { GoogleSpreadsheet } from 'google-spreadsheet'
+import path from 'path'
 
 import { BFXApi } from '../bitfinex-utils.js'
 import { DateToValue } from './gsheets-date-utils.js'
 import createLogger from '../logging.js'
+import { randomUUID } from 'crypto'
 
 dayjs.extend(utc)
 
@@ -48,6 +50,271 @@ const headerValues = [
   'Fee Amt',
   'Balance',
 ]
+
+export class FileBackend {
+  constructor(walletType, walletCurrency, bfxApi, outputDir) {
+    this._logger = createLogger('filebackend')
+    this._walletType = walletType
+    this._walletCurrency = walletCurrency
+    this._bfx = bfxApi
+    this._outputDir = outputDir
+    this._initializeOutputDir()
+    this._readOutputDir()
+  }
+
+  _initializeOutputDir() {
+    this._logger.debug("initializing output directory %s", this._outputDir)
+
+    if (!fs.existsSync(this._outputDir)) {
+      fs.mkdirSync(this._outputDir, { recursive: true })
+      this._logger.info("created new output directory %s", this._outputDir)
+    }
+
+    const indexFileName = path.join(this._outputDir, ".index")
+    if (!fs.existsSync(indexFileName)) {
+      fs.writeFileSync(indexFileName, "Sheet Id\tSheet Title\tStatus")
+      this._logger.info("wrote new index file %s", indexFileName)
+    }
+  }
+
+  _readIndexFile() {
+    const fileName = path.join(this._outputDir, ".index")
+    const str = fs.readFileSync(fileName)
+    const rows = str.split('\n').map((line) => line.split('\t'))
+    return rows
+  }
+
+  _readOutputDir() {
+    const indexRows = this._readIndexFile()
+    this._book = [{ title: 'Index', cells: indexRows }]
+
+    for (let i = 1; i < indexRows.length; i++) {
+      let rows
+      const dataFileName = path.join(this._outputDir, indexRows[i][0] + '.tsv')
+      if (!fs.existsSync(dataFileName)) {
+        const current = (indexRows[i][2] === 'IN PROGRESS')
+        if (current) {
+          this._logger.error('current datasheet was deleted, aborting')
+          process.exit(1)
+        } else {
+          this._logger.warn('old datasheet was deleted, ignoring it')
+        }
+        rows = []
+      } else {
+        const data = fs.readFileSync(dataFileName)
+        rows = data.split('\n').map((line) => line.split('\t'))
+      }
+
+      this._book.push({ title: indexRows[i][1], cells: rows })
+    }
+  }
+
+  _saveSheet(sheet, fileName) {
+    const data = sheet.cells.map((r) => r.join('\t')).join('\n')
+    fs.writeFileSync(path.join(this._outputDir, fileName), data)
+  }
+
+  _getCurrentSheetId() {
+    const sheet = this._book.find((s) => s.title === 'Index')
+    for (const row of sheet.cells) {
+      if (row[2] === 'IN PROGRESS') {
+        return row[0]
+      }
+    }
+    return null
+  }
+
+  _addSheet({ headerValues }) {
+    const row = [...headerValues]
+    const cells = [row]
+    const sheet = { id: randomUUID(), title: 'Untitled', cells }
+    return sheet
+  }
+
+  _finishSheet(sheetTitle) {
+    const sheet = this._book.find((s) => s.title === 'Index')
+
+    for (const row of sheet.cells) {
+      const title = row[1]
+      if (title === sheetTitle) {
+        row[2] = 'DONE'
+        break
+      }
+    }
+
+    this._saveSheet(sheet, ".index")
+  }
+
+  /* rowNum is one-based index */
+  _ensureRow(sheet, rowNum) {
+    let missing = rowNum - sheet.cells.length
+    if (missing <= 0) {
+      return true
+    }
+
+    /* add `missing` rows to the cells array using the header row as template */
+    const rowTemplate = sheet.cells[0].map((cell) => '')
+    while (missing > 0) {
+      sheet.cells.push([].concat(rowTemplate))
+      missing--
+    }
+    return true
+  }
+
+  async _createNewSheet() {
+    const indexSheet = this._book.find((s) => s.title === 'Index')
+    const now = dayjs.utc()
+    const dataSheet = this._addSheet({ headerValues })
+
+    /* Fill in the Start row */
+    this._ensureRow(dataSheet, 2)
+    dataSheet.cells[1][1] = now.toDate()
+    dataSheet.cells[1][2] = 'Start'
+    dataSheet.cells[1][headerValues.length - 1] = await this._bfx.getBalance(
+      this._walletType,
+      this._walletCurrency
+    )
+
+    const title = now.format('YYYY-MM-DDTHH:mm:ss')
+    dataSheet.title = title
+    /* Add new sheet to index */
+    indexSheet.cells.push([dataSheet.id, title, 'IN PROGRESS'])
+    /* Update book */
+    this._book.push(dataSheet)
+
+    this._saveSheet(indexSheet, ".index")
+    this._saveSheet(dataSheet, dataSheet.id + ".tsv")
+    return title
+  }
+
+  async _findSheetParameters() {
+    let currentSheetTitle =
+      this._getCurrentSheet() || (await this._createNewSheet())
+
+    let sheet = this._book.find((s) => s.title === currentSheetTitle)
+
+    let inProgress = false
+    let positionSize = 0
+    let nextRow = 0
+    while (nextRow < sheet.cells.length) {
+      const cell = sheet.cells[nextRow][2]
+      if (!cell) {
+        break
+      } else {
+        const size = sheet.cells[nextRow][3]
+        if ((nextRow > 1 && size) || size === 0) {
+          inProgress = true
+          /* XXX convert size to number and default to 0 if NaN */
+          positionSize += +size || 0
+        }
+        nextRow++
+      }
+    }
+
+    if (inProgress && Math.abs(positionSize) < 0.00000001) {
+      this._finishSheet(sheet.title)
+      currentSheetTitle = await this._createNewSheet()
+      nextRow = 2
+      sheet = this._book.find((s) => s.title === currentSheetTitle)
+    }
+
+    return {
+      sheetTitle: currentSheetTitle,
+      positionSize,
+      nextRow,
+    }
+  }
+
+  async _nextSheet() {
+    this._finishSheet(this._sheetTitle)
+    const newSheetTitle = await this._createNewSheet()
+    const nextRow = 2
+    const sheet = this._book.find((s) => s.title === newSheetTitle)
+
+    /* Update this object state */
+    this._sheetTitle = newSheetTitle
+    this._positionSize = 0
+    this._nextRow = nextRow
+    this._sheet = sheet
+
+    this._logger.info(
+      'Working on current sheet %s, nextRow = %d, positionSize = %f',
+      this._sheetTitle,
+      this._nextRow,
+      this._positionSize
+    )
+  }
+
+  async setupWorkingSheet() {
+    const { sheetTitle, positionSize, nextRow } =
+      await this._findSheetParameters()
+    this._sheetTitle = sheetTitle
+    this._positionSize = positionSize
+    this._nextRow = nextRow
+    this._sheet = this._book.find((s) => s.title === sheetTitle)
+  }
+
+  async addRow(inputRow) {
+    const nextRow = this._nextRow
+    /* XXX nextRow is a zero-based index while _ensureRow accpts a one-based index */
+    this._ensureRow(this._sheet, nextRow + 1)
+    const prevRow = this._sheet.cells[nextRow - 1]
+    const row = this._sheet.cells[nextRow]
+    for (let i = 0; i < headerValues.length; i++) {
+      switch (i) {
+        case 0:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+          row[i] = inputRow[i]
+          break
+        case 1:
+          row[i] = inputRow[i].toDate()
+          break
+        case 7:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          const H = prevRow[7] || 0
+          const S = this._sheet.cells
+            .slice(1, nextRow)
+            .reduce((s, c) => s + (c[3] || 0), 0)
+          const Bsp = row[2] === 'Buy' ? row[3] * row[4] : 0.0
+          const Bs = row[2] === 'Buy' ? row[3] : 0.0
+          row[i] = ((H * S + Bsp) / (S + Bs)).toFixed(8)
+          break
+        case 8:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          row[i] = row[2] === 'Sell' ? (row[4] - row[7]) * row[3] : 0.0
+          break
+        case 9:
+          // 0 1 2 3 4 5 6 7
+          // A B C D E F G H
+          row[i] = -Math.abs((row[3] * row[4] * row[6]).toFixed(8))
+          break
+        case 10:
+          // 0 1 2 3 4 5 6 7 8 9 10
+          // A B C D E F G H I J  K
+          row[i] = row[8] + prevRow[10] + row[9] + row[5]
+          break
+      }
+    }
+
+    this._logger.info(`addRow: ${JSON.stringify(inputRow)}`)
+    this._logger.debug('sheet:')
+    for (let i = 0; i < this._sheet.cells.length; i++) {
+      this._logger.debug(`[${i}] ${JSON.stringify(this._sheet.cells[i])}`)
+    }
+
+    this._nextRow++
+    this._positionSize += inputRow[3]
+    if (Math.abs(this._positionSize) < 0.00000001) {
+      await this._nextSheet()
+    }
+  }
+}
 
 export class MemoryBackend {
   constructor(walletType, walletCurrency, bfxApi) {
@@ -476,40 +743,34 @@ export class GoogleSheetsBackend {
             type: 'NUMBER',
             pattern: '#0.00000000',
           }
-          cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$2:D${nextRow})+IF(C${
-            nextRow + 1
-          }="Buy";(D${nextRow + 1}*E${
-            nextRow + 1
-          });0))/(SUM($D$2:D${nextRow})+IF(C${nextRow + 1}="Buy";D${
-            nextRow + 1
-          };0));8)`
+          cell.formula = `=ROUNDUP((H${nextRow}*SUM($D$2:D${nextRow})+IF(C${nextRow + 1
+            }="Buy";(D${nextRow + 1}*E${nextRow + 1
+            });0))/(SUM($D$2:D${nextRow})+IF(C${nextRow + 1}="Buy";D${nextRow + 1
+            };0));8)`
           break
         case 8:
           cell.numberFormat = {
             type: 'NUMBER',
             pattern: '#0.00000000',
           }
-          cell.formula = `=IF(C${nextRow + 1}="Sell";(E${nextRow + 1}-H${
-            nextRow + 1
-          })*D${nextRow + 1};0)`
+          cell.formula = `=IF(C${nextRow + 1}="Sell";(E${nextRow + 1}-H${nextRow + 1
+            })*D${nextRow + 1};0)`
           break
         case 9:
           cell.numberFormat = {
             type: 'NUMBER',
             pattern: '#0.00000000',
           }
-          cell.formula = `=-ABS(ROUND(D${nextRow + 1}*E${nextRow + 1}*G${
-            nextRow + 1
-          };8))`
+          cell.formula = `=-ABS(ROUND(D${nextRow + 1}*E${nextRow + 1}*G${nextRow + 1
+            };8))`
           break
         case 10:
           cell.numberFormat = {
             type: 'NUMBER',
             pattern: '#0.00000000',
           }
-          cell.formula = `=I${nextRow + 1}+K${nextRow}+J${nextRow + 1}+F${
-            nextRow + 1
-          }`
+          cell.formula = `=I${nextRow + 1}+K${nextRow}+J${nextRow + 1}+F${nextRow + 1
+            }`
           break
       }
     }
