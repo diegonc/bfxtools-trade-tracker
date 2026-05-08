@@ -509,8 +509,8 @@ export class MemoryBackend {
 
     this._logger.info(`addRow: ${JSON.stringify(inputRow)}`)
     this._logger.debug('sheet:')
-    for (let i = 0; i < this._sheet.length; i++) {
-      this._logger.debug(`[${i}] ${JSON.stringify(this._sheet[i])}`)
+    for (let i = 0; i < this._sheet.cells.length; i++) {
+      this._logger.debug(`[${i}] ${JSON.stringify(this._sheet.cells[i])}`)
     }
 
     this._nextRow++
