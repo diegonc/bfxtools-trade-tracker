@@ -167,7 +167,7 @@ export class MemoryBackend {
     this._finishSheet(this._sheetTitle)
     const newSheetTitle = await this._createNewSheet()
     const nextRow = 2
-    const sheet = this._book.sheetsByTitle[newSheetTitle]
+    const sheet = this._book.find((s) => s.title === newSheetTitle)
 
     /* Update this object state */
     this._sheetTitle = newSheetTitle
