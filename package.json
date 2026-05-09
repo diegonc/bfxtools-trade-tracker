@@ -15,6 +15,7 @@
     "bitfinex-api-node": "^8.0.0",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
+    "express": "^5.2.1",
     "google-auth-library": "^9.15.1",
     "google-spreadsheet": "^4.1.4",
     "p-queue": "^8.1.0",

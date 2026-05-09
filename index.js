@@ -3,6 +3,7 @@ import './config/index.js'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc.js'
 import { RetryableQueue } from './queue/index.js'
+import { setupDashboard } from './dashboard.js'
 
 dayjs.extend(utc)
 
@@ -78,7 +79,7 @@ async function main(symbol, walletCurrency) {
     tracker._api._positionSize
   )
 
-  const { close } = await subscribeTrades(
+  const { close, _ws: ws } = await subscribeTrades(
     { symbol, statusKey: `deriv:${symbol}` },
     (trade) => {
       queue
@@ -96,12 +97,26 @@ async function main(symbol, walletCurrency) {
     }
   )
 
+  const http = setupDashboard({ ws, queue })
+
+  function closeHttp() {
+    return new Promise((resolve, reject) => {
+      http.close((err) => (err && reject(err)) || resolve())
+    })
+  }
+
   function term() {
     logger.debug('Closing WS connection...')
-    close().then((_) => {
-      logger.debug('Exiting...')
-      process.exit(0)
-    })
+    close()
+      .then(() => closeHttp())
+      .then((_) => {
+        logger.debug('Exiting...')
+        process.exit(0)
+      })
+      .catch((err) => {
+        logger.error('tear down sequence failed: %j', err)
+        process.exit(1)
+      })
   }
 
   process.on('SIGINT', term)
