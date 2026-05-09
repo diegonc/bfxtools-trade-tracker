@@ -32,6 +32,11 @@ function apiV1({ ws, queue }) {
 
     // Create event handlers
     const handlers = {
+      active: () => {
+        res.write(
+          `data: ${JSON.stringify({ type: 'active', message: `Size: ${queue.size} Pending: ${queue.pending}` })}\n\n`
+        )
+      },
       add: (event) => {
         res.write(`data: ${JSON.stringify({ type: 'add', ...event })}\n\n`)
       },
@@ -45,6 +50,9 @@ function apiV1({ ws, queue }) {
         res.write(
           `data: ${JSON.stringify({ type: 'error', message: error?.message || String(error) })}\n\n`
         )
+      },
+      idle: () => {
+        res.write(`data: ${JSON.stringify({ type: 'idle' })}\n\n`)
       },
     }
 
